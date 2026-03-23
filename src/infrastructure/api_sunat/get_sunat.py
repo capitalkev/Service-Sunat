@@ -37,7 +37,6 @@ class APISUNAT(APIClientInterface):
             return datos.get("access_token")
 
         except Exception as e:
-            # Aquí detenemos el script inmediatamente, evitando el falso "401" después
             raise ValueError(f"Fallo crítico en autenticación: {e}")
 
     def solicitar_descarga(self, periodo, token_acceso) -> str:

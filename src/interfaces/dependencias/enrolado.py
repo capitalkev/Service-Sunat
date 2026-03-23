@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 
 from src.application.api_sunat.get_sunat import APIService
 from src.application.api_sunat.orquestador_descargas import OrquestadorDescargas
-from src.application.api_sunat.scraping_service import ScrapingService
-from src.application.enrolados.update_metodo import UpdateMetodoEnrolado
+from src.domain.interfaces import TokenScraperInterface
 from src.infrastructure.api_sunat.get_sunat import APISUNAT
-from src.infrastructure.playwright_sunat.scraper import PlaywrightSUNAT
+from src.infrastructure.playwright_sunat.scraper import (
+    PlaywrightTokenScraper,
+)
 from src.infrastructure.postgresql.connection_sunat import get_db
 from src.infrastructure.postgresql.repositories_sunat.sunat import ScriptRepository
 from src.application.enrolados.get_enrolados import GetEnrolado
@@ -28,21 +29,14 @@ def get_api_service() -> APIService:
     return APIService(repository=sunat_client)
 
 
-def get_scraper_service() -> ScrapingService:
-    scraper_client = PlaywrightSUNAT()
-    return ScrapingService(repository=scraper_client)
-
-
-def dp_update_metodo(db: Session = Depends(get_db)) -> UpdateMetodoEnrolado:
-    repository = ScriptRepository(db)
-    return UpdateMetodoEnrolado(repository)
+def get_token_scraper() -> TokenScraperInterface:
+    return PlaywrightTokenScraper()
 
 
 def get_orquestador_service(
     api: APIService = Depends(get_api_service),
-    scraper: ScrapingService = Depends(get_scraper_service),
-    update_repo: UpdateMetodoEnrolado = Depends(dp_update_metodo),
+    scraper: TokenScraperInterface = Depends(get_token_scraper),
 ) -> OrquestadorDescargas:
     return OrquestadorDescargas(
-        api_service=api, scraper_service=scraper, update_metodo_repo=update_repo
+        api_service=api, token_scraper=scraper
     )

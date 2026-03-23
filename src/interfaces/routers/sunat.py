@@ -48,19 +48,13 @@ def descargar_manual(
     datos: CredencialesManuales,
     orquestador: OrquestadorDescargas = Depends(get_orquestador_service),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
-    repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
-    # 1. Guardar o actualizar en BD
     try:
         save_repo.execute(datos.model_dump())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error BD: {e}")
 
-    # 2. Obtener el método guardado en BD ('api' o 'scraper')
-    cliente_db = repo.repository.get_enrolado_by_ruc(datos.ruc)
-    metodo = cliente_db.get("metodo", "api") if cliente_db else "api"
 
-    # 3. Generar los últimos 15 meses y llamar al Orquestador
     periodos = generar_periodos(15)
 
     resultado = orquestador.execute(
@@ -69,14 +63,12 @@ def descargar_manual(
         clave_sol=datos.clave_sol,
         client_id=datos.client_id,
         client_secret=datos.client_secret,
-        metodo=metodo,
         periodos=periodos,
     )
 
     return {
         "status": "success",
         "tipo": "manual_historico",
-        "via_utilizada": resultado["via"],
         "total_procesados": len(resultado["detalle"]),
         "detalle": resultado["detalle"],
     }
@@ -94,8 +86,8 @@ def procesar_lote_automatico(
             status_code=404, detail="No hay enrolados en la base de datos."
         )
 
-    # Generamos solo 1 periodo (el mes anterior)
-    periodos = generar_periodos(1)
+    # Generamos solo 1 periodo (el actual) para este endpoint automático, ya que se asume que se ejecutará mensualmente y solo necesita el periodo vigente
+    periodos = generar_periodos(1)# este mes
     resultados_lote = []
 
     for emp in enrolados:
@@ -105,13 +97,11 @@ def procesar_lote_automatico(
             clave_sol=emp["clave_sol"],
             client_id=emp["client_id"],
             client_secret=emp["client_secret"],
-            metodo=emp.get("metodo", "api"),
             periodos=periodos,
         )
         resultados_lote.append(
             {
                 "ruc": emp["ruc"],
-                "via_utilizada": resultado["via"],
                 "detalle": resultado["detalle"],
             }
         )

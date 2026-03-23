@@ -10,7 +10,6 @@ class ScriptRepository(ScriptInterface):
     def __init__(self, db: Session):
         self.db = db
 
-    # Querys para Automático
     def get_enrolado(self, limite: int) -> Any:
         query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados"
 
@@ -20,9 +19,6 @@ class ScriptRepository(ScriptInterface):
         query = text(query_str)
         result = self.db.execute(query)
         return [dict(row) for row in result.mappings()]
-    
-    
-    # Querys para manual
 
     def get_enrolado_by_ruc(self, ruc: str) -> Any:
         query = text(
@@ -54,9 +50,4 @@ class ScriptRepository(ScriptInterface):
             )
             self.db.execute(insert_query, datos)
 
-        self.db.commit()
-
-    def update_metodo(self, ruc: str, metodo: str) -> None:
-        query = text("UPDATE enrolados SET metodo = :metodo WHERE ruc = :ruc")
-        self.db.execute(query, {"metodo": metodo, "ruc": ruc})
         self.db.commit()
