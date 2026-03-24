@@ -37,6 +37,4 @@ def get_orquestador_service(
     api: APIService = Depends(get_api_service),
     scraper: TokenScraperInterface = Depends(get_token_scraper),
 ) -> OrquestadorDescargas:
-    return OrquestadorDescargas(
-        api_service=api, token_scraper=scraper
-    )
+    return OrquestadorDescargas(api_service=api, token_scraper=scraper)

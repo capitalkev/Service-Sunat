@@ -1,30 +1,45 @@
+import traceback
 from playwright.sync_api import sync_playwright
 from src.domain.interfaces import TokenScraperInterface
 
 
 class PlaywrightTokenScraper(TokenScraperInterface):
     def obtener_token_bearer(self, ruc: str, usuario_sol: str, clave_sol: str) -> str:
-        print(f"[{ruc}] Iniciando Playwright para capturar Token...")
+        print(f"[{ruc}] 1. Iniciando Playwright para capturar Token...")
         token_capturado = None
 
-        with sync_playwright() as p:
-            # En producción asegúrate de usar headless=True
-            browser = p.chromium.launch(channel="msedge", headless=True)
-            context = browser.new_context()
-            page = context.new_page()
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",  # Oculta la huella de que es un robot
+                        "--no-sandbox",  # Requerido para entornos Linux/Cloud Run
+                        "--disable-setuid-sandbox",
+                        "--disable-infobars",
+                        "--window-size=1920,1080",  # Fuerza un tamaño de pantalla realista
+                    ],
+                )
+                context = browser.new_context(
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                    viewport={"width": 1920, "height": 1080},
+                )
+                page = context.new_page()
 
-            def capturar_headers(request):
-                nonlocal token_capturado
-                if "api-sire.sunat.gob.pe" in request.url:
-                    headers = request.headers
-                    auth_header = headers.get("authorization", "")
-                    if auth_header.lower().startswith("bearer"):
-                        # Extraemos solo el token, sin la palabra "Bearer "
-                        token_capturado = auth_header.split(" ", 1)[1]
+                def capturar_headers(request):
+                    nonlocal token_capturado
+                    if "api-sire.sunat.gob.pe" in request.url:
+                        headers = request.headers
+                        auth_header = headers.get("authorization", "")
+                        if auth_header.lower().startswith("bearer"):
+                            token_capturado = (
+                                auth_header.split(" ", 1)[1]
+                                if " " in auth_header
+                                else auth_header[7:]
+                            )
 
-            page.on("request", capturar_headers)
+                page.on("request", capturar_headers)
 
-            try:
                 url_login = "https://api-seguridad.sunat.gob.pe/v1/clientessol/4f3b88b3-d9d6-402a-b85d-6a0bc857746a/oauth2/loginMenuSol?lang=es-PE&showDni=true&showLanguages=false&originalUrl=https://e-menu.sunat.gob.pe/cl-ti-itmenu/AutenticaMenuInternet.htm&state=rO0ABXNyABFqYXZhLnV0aWwuSGFzaE1hcAUH2sHDFmDRAwACRgAKbG9hZEZhY3RvckkACXRocmVzaG9sZHhwP0AAAAAAAAx3CAAAABAAAAADdAAEZXhlY3B0AAZwYXJhbXN0AEsqJiomL2NsLXRpLWl0bWVudS9NZW51SW50ZXJuZXQuaHRtJmI2NGQyNmE4YjVhZjA5MTkyM2IyM2I2NDA3YTFjMWRiNDFlNzMzYTZ0AANleGVweA=="
                 page.goto(url_login)
 
@@ -44,16 +59,16 @@ class PlaywrightTokenScraper(TokenScraperInterface):
                     )
 
                 page.wait_for_timeout(1000)
-                page.evaluate("""
+                page.evaluate(
+                    """
                     const fondo = document.getElementById('divModalCampanaBak');
                     if (fondo) fondo.remove();
-                    
                     const modal = document.getElementById('divModalCampana');
                     if (modal) modal.remove();
-                    
                     document.body.classList.remove('modal-open');
                     document.body.style.overflow = 'auto';
-                """)
+                """
+                )
 
                 page.locator("#divOpcionServicio2 > h4").first.click()
                 page.locator("#nivel1_60 > span.spanNivelDescripcion").first.click()
@@ -61,18 +76,19 @@ class PlaywrightTokenScraper(TokenScraperInterface):
                 page.locator("#nivel3_60_2_1 > span.spanNivelDescripcion").first.click()
                 page.locator("#nivel4_60_2_1_1_1 > span").first.click()
 
-                for _ in range(10):
+                for i in range(10):
                     if token_capturado:
                         break
                     page.wait_for_timeout(1000)
 
-            except Exception as e:
-                raise RuntimeError(f"Fallo en Playwright: {e}")
-            finally:
                 context.close()
                 browser.close()
 
+        except Exception as e:
+            print(traceback.format_exc())
+            raise RuntimeError(f"Fallo en Scraper: {e}")
+
         if not token_capturado:
-            raise ValueError("No se pudo capturar el Token Bearer.")
+            raise ValueError("No se pudo capturar el Token Bearer tras la navegación.")
 
         return token_capturado

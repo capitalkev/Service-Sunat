@@ -1,20 +1,27 @@
 from src.domain.interfaces import APIClientInterface
 
+
 class APIService:
     def __init__(self, repository: APIClientInterface):
         self.sunat = repository
 
     def execute(self, periodo: str, token_acceso: str):
         numero_ticket = self.sunat.solicitar_descarga(periodo, token_acceso)
-        datos_archivo = self.sunat.verificar_estado(numero_ticket, token_acceso, periodo)
-        
+        datos_archivo = self.sunat.verificar_estado(
+            numero_ticket, token_acceso, periodo
+        )
+
         if datos_archivo and isinstance(datos_archivo, dict):
-            ruta_archivo = self.sunat.descargar_archivo(datos_archivo, token_acceso, periodo, numero_ticket)
-            
+            ruta_archivo = self.sunat.descargar_archivo(
+                datos_archivo, token_acceso, periodo, numero_ticket
+            )
+
             return {
                 "mensaje": "Archivo descargado y extraído exitosamente",
                 "ticket": numero_ticket,
-                "ruta_archivo": ruta_archivo
+                "ruta_archivo": ruta_archivo,
             }
         else:
-            raise ValueError("No se obtuvieron datos válidos para descargar el archivo.")
+            raise ValueError(
+                "No se obtuvieron datos válidos para descargar el archivo."
+            )

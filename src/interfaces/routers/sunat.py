@@ -24,22 +24,30 @@ class CredencialesManuales(BaseModel):
     client_secret: str
 
 
-def generar_periodos(meses_hacia_atras: int) -> list:
-    """Función de ayuda para calcular los periodos en formato YYYYMM"""
+def generar_periodos(meses_hacia_atras: int, incluir_mes_actual: bool = True) -> list:
+    """
+    Genera periodos en formato YYYYMM.
+    Si incluir_mes_actual es True, empieza a contar desde el mes actual.
+    Si es False, empieza a contar desde el mes anterior.
+    """
     hoy = datetime.now()
     anio_actual, mes_actual = hoy.year, hoy.month
     periodos = []
 
-    if meses_hacia_atras == 1:
+    # Si no queremos el mes actual, retrocedemos un mes antes de empezar
+    if not incluir_mes_actual:
         mes_actual -= 1
         if mes_actual == 0:
-            mes_actual, anio_actual = 12, anio_actual - 1
+            mes_actual = 12
+            anio_actual -= 1
 
     for _ in range(meses_hacia_atras):
         periodos.append(f"{anio_actual}{mes_actual:02d}")
         mes_actual -= 1
         if mes_actual == 0:
-            mes_actual, anio_actual = 12, anio_actual - 1
+            mes_actual = 12
+            anio_actual -= 1
+
     return periodos
 
 
@@ -54,8 +62,7 @@ def descargar_manual(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error BD: {e}")
 
-
-    periodos = generar_periodos(15)
+    periodos = generar_periodos(1, incluir_mes_actual=True)
 
     resultado = orquestador.execute(
         ruc=datos.ruc,
@@ -87,7 +94,7 @@ def procesar_lote_automatico(
         )
 
     # Generamos solo 1 periodo (el actual) para este endpoint automático, ya que se asume que se ejecutará mensualmente y solo necesita el periodo vigente
-    periodos = generar_periodos(1)# este mes
+    periodos = generar_periodos(1, incluir_mes_actual=True)  # este mes
     resultados_lote = []
 
     for emp in enrolados:

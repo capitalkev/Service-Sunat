@@ -1,5 +1,6 @@
 from src.domain.interfaces import ScriptInterface
 
+
 class SaveEnrolado:
     def __init__(self, repository: ScriptInterface):
         self.repository = repository
