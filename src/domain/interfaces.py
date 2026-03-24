@@ -23,7 +23,7 @@ class APIClientInterface(Protocol):
     ) -> dict: ...
 
     def descargar_archivo(
-        self, datos_archivo: dict, token_acceso: str, periodo: str, numero_ticket: str
+        self, datos_archivo: dict, token_acceso: str, periodo: str, numero_ticket: str, ruc: str
     ) -> str: ...
 
 

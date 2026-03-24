@@ -1,5 +1,9 @@
+# src/application/api_sunat/orquestador_descargas.py
+
+from datetime import datetime
 from src.application.api_sunat.get_sunat import APIService
 from src.domain.interfaces import TokenScraperInterface
+from src.application.etl.procesar_ventas import ProcesarVentasETL
 
 
 class OrquestadorDescargas:
@@ -7,89 +11,91 @@ class OrquestadorDescargas:
         self,
         api_service: APIService,
         token_scraper: TokenScraperInterface,
+        etl_service: ProcesarVentasETL,
     ):
         self.api = api_service
         self.token_scraper = token_scraper
+        self.etl = etl_service
 
     def execute(
-        self,
-        ruc,
-        usuario_sol,
-        clave_sol,
-        client_id,
-        client_secret,
-        periodos: list,
+        self, ruc, usuario_sol, clave_sol, client_id, client_secret, periodos: list
     ):
         resultados = []
-        token_acceso = None
-        playwright_usado = False
 
-        # 1. Intentamos generar token por API primero (Es mucho más rápido que abrir Playwright)
-        try:
-            token_acceso = self.api.sunat.get_token(
-                ruc, usuario_sol, clave_sol, client_id, client_secret
-            )
-            if token_acceso:
-                print(f"[{ruc}] Token obtenido por API exitosamente.")
-        except Exception as e:
-            print(f"[{ruc}] Falló la generación de Token API: {e}")
+        periodo_actual = datetime.now().strftime("%Y%m")
 
-        # 2. Procesamiento de los periodos
+        def obtener_token():
+            try:
+                token = self.api.sunat.get_token(
+                    ruc, usuario_sol, clave_sol, client_id, client_secret
+                )
+                if token:
+                    return token
+            except Exception as e:
+                print(f"[{ruc}] Falló Token API. Intentando Playwright...")
+
+            try:
+                return self.token_scraper.obtener_token_bearer(
+                    ruc, usuario_sol.upper(), clave_sol
+                )
+            except Exception as e:
+                print(f"[{ruc}] Fallo Crítico en Playwright: {e}")
+                return None
+
+        token_acceso = obtener_token()
+        if not token_acceso:
+            return {
+                "valido": False,
+                "detalle": [
+                    {
+                        "periodo": p,
+                        "status": "error",
+                        "mensaje": "Credenciales inválidas.",
+                    }
+                    for p in periodos
+                ],
+            }
+
         for periodo in periodos:
-            reintento_por_401 = False
+            if periodo != periodo_actual and self.etl.repository.existe_periodo(
+                ruc, periodo
+            ):
+                print(f"[{ruc}] Periodo {periodo} ya está en BD. Saltando descarga...")
+                resultados.append(
+                    {
+                        "periodo": periodo,
+                        "status": "success",
+                        "mensaje": "Ya existe en BD, omitido.",
+                    }
+                )
+                continue
 
-            while True:
-                if not token_acceso:
-                    if playwright_usado:
-                        resultados.append(
-                            {
-                                "periodo": periodo,
-                                "status": "error",
-                                "mensaje": "Token de Playwright también fue rechazado.",
-                            }
-                        )
-                        break
-
-                    try:
-                        print(f"[{ruc}] Obteniendo Token vía Playwright...")
-                        token_acceso = self.token_scraper.obtener_token_bearer(
-                            ruc, usuario_sol.upper(), clave_sol
-                        )
-                        playwright_usado = True
-                    except Exception as e:
-                        idx_actual = periodos.index(periodo)
-                        for p in periodos[idx_actual:]:
-                            resultados.append(
-                                {
-                                    "periodo": p,
-                                    "status": "error",
-                                    "mensaje": f"Fallo inicio Playwright: {e}",
-                                }
-                            )
-                        return {"detalle": resultados}
-
+            reintentos = 0
+            while reintentos < 2:
                 try:
+                    print(f"[{ruc}] Descargando periodo {periodo} desde SUNAT...")
                     res_api = self.api.execute(
-                        periodo=periodo, token_acceso=token_acceso
+                        periodo=periodo, token_acceso=token_acceso, ruc=ruc
                     )
+
+                    if "ruta_archivo" in res_api:
+                        res_etl = self.etl.execute(
+                            res_api["ruta_archivo"], ruc, periodo
+                        )
+                        res_api["etl_stats"] = res_etl
+
                     resultados.append(
                         {"periodo": periodo, "status": "success", "data": res_api}
                     )
+                    break
 
                 except Exception as e:
                     error_msg = str(e)
-
-                    if (
-                        ("401" in error_msg or "Unauthorized" in error_msg)
-                        and not reintento_por_401
-                        and not playwright_usado
-                    ):
-                        print(
-                            f"[{ruc}] Token API dio error 401 en periodo {periodo}. Refrescando con Playwright..."
-                        )
-                        token_acceso = None
-                        reintento_por_401 = True
-                        continue
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        token_acceso = obtener_token()
+                        if not token_acceso:
+                            break
+                        reintentos += 1
                     else:
                         resultados.append(
                             {
@@ -98,5 +104,6 @@ class OrquestadorDescargas:
                                 "mensaje": error_msg,
                             }
                         )
-                    break
-        return {"detalle": resultados}
+                        break
+
+        return {"valido": True, "detalle": resultados}

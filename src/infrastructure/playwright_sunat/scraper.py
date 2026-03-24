@@ -13,11 +13,11 @@ class PlaywrightTokenScraper(TokenScraperInterface):
                 browser = p.chromium.launch(
                     headless=True,
                     args=[
-                        "--disable-blink-features=AutomationControlled",  # Oculta la huella de que es un robot
-                        "--no-sandbox",  # Requerido para entornos Linux/Cloud Run
+                        "--disable-blink-features=AutomationControlled",
+                        "--no-sandbox",
                         "--disable-setuid-sandbox",
                         "--disable-infobars",
-                        "--window-size=1920,1080",  # Fuerza un tamaño de pantalla realista
+                        "--window-size=1920,1080",
                     ],
                 )
                 context = browser.new_context(

@@ -57,12 +57,7 @@ def descargar_manual(
     orquestador: OrquestadorDescargas = Depends(get_orquestador_service),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
 ):
-    try:
-        save_repo.execute(datos.model_dump())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error BD: {e}")
-
-    periodos = generar_periodos(1, incluir_mes_actual=True)
+    periodos = generar_periodos(15, incluir_mes_actual=True)
 
     resultado = orquestador.execute(
         ruc=datos.ruc,
@@ -72,6 +67,17 @@ def descargar_manual(
         client_secret=datos.client_secret,
         periodos=periodos,
     )
+
+    if not resultado.get("valido"):
+        raise HTTPException(
+            status_code=401, 
+            detail="Error de autenticación. Verifica que el RUC, Usuario y Clave SOL sean correctos."
+        )
+
+    try:
+        save_repo.execute(datos.model_dump())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al guardar en BD: {e}")
 
     return {
         "status": "success",
@@ -93,8 +99,7 @@ def procesar_lote_automatico(
             status_code=404, detail="No hay enrolados en la base de datos."
         )
 
-    # Generamos solo 1 periodo (el actual) para este endpoint automático, ya que se asume que se ejecutará mensualmente y solo necesita el periodo vigente
-    periodos = generar_periodos(1, incluir_mes_actual=True)  # este mes
+    periodos = generar_periodos(3, incluir_mes_actual=True) 
     resultados_lote = []
 
     for emp in enrolados:
@@ -109,7 +114,7 @@ def procesar_lote_automatico(
         resultados_lote.append(
             {
                 "ruc": emp["ruc"],
-                "detalle": resultado["detalle"],
+                "detalle": resultado.get("detalle", []),
             }
         )
 

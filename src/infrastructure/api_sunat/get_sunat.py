@@ -140,7 +140,7 @@ class APISUNAT(APIClientInterface):
                 raise RuntimeError(f"Error al consultar estado: {e}")
 
     def descargar_archivo(
-        self, datos_archivo, token_acceso, periodo, numero_ticket
+        self, datos_archivo, token_acceso, periodo, numero_ticket, ruc
     ) -> str:
         url_descarga = "https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/archivoreporte"
         params_descarga = {
@@ -159,40 +159,32 @@ class APISUNAT(APIClientInterface):
             )
             res_descarga.raise_for_status()
 
-            # 1. Crear carpeta de descargas si no existe
             directorio_descargas = "descargas_sire"
             os.makedirs(directorio_descargas, exist_ok=True)
 
-            # 2. Nombre único para el ZIP usando el número de ticket
-            nombre_original = datos_archivo["nomArchivoReporte"]
-            ruta_zip = os.path.join(
-                directorio_descargas, f"{numero_ticket}_{nombre_original}"
+            ruta_zip_temporal = os.path.join(
+                directorio_descargas, f"temp_{numero_ticket}.zip"
             )
 
-            # Guardar el ZIP
-            with open(ruta_zip, "wb") as f:
+            with open(ruta_zip_temporal, "wb") as f:
                 f.write(res_descarga.content)
 
-            # 3. Extraer el archivo
-            ruta_extraccion = os.path.join(
-                directorio_descargas, f"extraido_{numero_ticket}"
-            )
-            os.makedirs(ruta_extraccion, exist_ok=True)
+            nombre_final = f"{ruc}-{periodo}.csv"
+            ruta_archivo_final = os.path.join(directorio_descargas, nombre_final)
 
-            ruta_archivo_final = ""
-            with zipfile.ZipFile(ruta_zip, "r") as zip_ref:
-                zip_ref.extractall(ruta_extraccion)
+            with zipfile.ZipFile(ruta_zip_temporal, "r") as zip_ref:
                 archivos_extraidos = zip_ref.namelist()
 
                 if archivos_extraidos:
-                    # Obtenemos la ruta del primer archivo extraído (el Excel/CSV)
-                    ruta_archivo_final = os.path.join(
-                        ruta_extraccion, archivos_extraidos[0]
-                    )
+                    nombre_interno = archivos_extraidos[0]
+                    
+                    with open(ruta_archivo_final, "wb") as f_out:
+                        f_out.write(zip_ref.read(nombre_interno))
 
-            print(f"✓ Archivo extraído listo para procesar en: '{ruta_archivo_final}'")
+            print(f"✓ Archivo listo y ordenado en: '{ruta_archivo_final}'")
 
-            os.remove(ruta_zip)
+            if os.path.exists(ruta_zip_temporal):
+                os.remove(ruta_zip_temporal)
 
             return ruta_archivo_final
 
