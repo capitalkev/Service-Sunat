@@ -1,3 +1,5 @@
+import io
+
 import pandas as pd
 import numpy as np
 import os
@@ -8,7 +10,7 @@ class ProcesarVentasETL:
     def __init__(self, repository: VentasRepository):
         self.repository = repository
 
-    def execute(self, ruta_csv: str, ruc_cliente: str, periodo: str) -> dict:
+    def execute(self, csv_file_obj: io.BytesIO, ruc_cliente: str, periodo: str) -> dict:
         lineas_malas = []
 
         def capturar_lineas_malas(bad_line):
@@ -17,7 +19,7 @@ class ProcesarVentasETL:
 
         # 1. Leer como texto atrapando comas rotas
         df = pd.read_csv(
-            ruta_csv,
+            csv_file_obj,
             encoding="utf-8",
             engine="python",
             on_bad_lines=capturar_lineas_malas,
@@ -141,10 +143,6 @@ class ProcesarVentasETL:
 
             # 5. Carga (Load a la BD)
             self.repository.guardar_lote_ventas(df_limpio, ruc_cliente, periodo)
-
-        # 6. Eliminar el CSV crudo extraído para limpiar el servidor
-        if os.path.exists(ruta_csv):
-            os.remove(ruta_csv)
 
         return {
             "procesados_ok": len(df_limpio),

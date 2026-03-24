@@ -71,6 +71,7 @@ class OrquestadorDescargas:
                 continue
 
             reintentos = 0
+
             while reintentos < 2:
                 try:
                     print(f"[{ruc}] Descargando periodo {periodo} desde SUNAT...")
@@ -78,11 +79,18 @@ class OrquestadorDescargas:
                         periodo=periodo, token_acceso=token_acceso, ruc=ruc
                     )
 
-                    if "ruta_archivo" in res_api:
+                    # Usamos ÚNICAMENTE la versión en memoria para Cloud Run
+                    if "archivo_memoria" in res_api:
                         res_etl = self.etl.execute(
-                            res_api["ruta_archivo"], ruc, periodo
+                            res_api["archivo_memoria"], ruc, periodo
                         )
+
+                        # 1. Guardamos las estadísticas del ETL en la respuesta
                         res_api["etl_stats"] = res_etl
+
+                        # 2. Cerramos y eliminamos el buffer para liberar RAM y permitir JSON serialization
+                        res_api["archivo_memoria"].close()
+                        del res_api["archivo_memoria"]
 
                     resultados.append(
                         {"periodo": periodo, "status": "success", "data": res_api}

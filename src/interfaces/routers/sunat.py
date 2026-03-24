@@ -99,7 +99,7 @@ def procesar_lote_automatico(
             status_code=404, detail="No hay enrolados en la base de datos."
         )
 
-    periodos = generar_periodos(3, incluir_mes_actual=True) 
+    periodos = generar_periodos(1, incluir_mes_actual=True) 
     resultados_lote = []
 
     for emp in enrolados:

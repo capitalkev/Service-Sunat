@@ -12,16 +12,13 @@ class APIService:
         )
 
         if datos_archivo and isinstance(datos_archivo, dict):
-            ruta_archivo = self.sunat.descargar_archivo(
+            # Ahora esto retorna un io.BytesIO
+            archivo_memoria = self.sunat.descargar_archivo(
                 datos_archivo, token_acceso, periodo, numero_ticket, ruc
             )
 
             return {
                 "mensaje": "Archivo descargado y extraído exitosamente",
                 "ticket": numero_ticket,
-                "ruta_archivo": ruta_archivo,
+                "archivo_memoria": archivo_memoria,
             }
-        else:
-            raise ValueError(
-                "No se obtuvieron datos válidos para descargar el archivo."
-            )

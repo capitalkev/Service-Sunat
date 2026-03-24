@@ -1,4 +1,5 @@
 from typing import Any, Protocol
+import io
 
 
 class ScriptInterface(Protocol):
@@ -23,8 +24,13 @@ class APIClientInterface(Protocol):
     ) -> dict: ...
 
     def descargar_archivo(
-        self, datos_archivo: dict, token_acceso: str, periodo: str, numero_ticket: str, ruc: str
-    ) -> str: ...
+        self,
+        datos_archivo: dict,
+        token_acceso: str,
+        periodo: str,
+        numero_ticket: str,
+        ruc: str,
+    ) -> io.BytesIO: ...
 
 
 class TokenScraperInterface(Protocol):

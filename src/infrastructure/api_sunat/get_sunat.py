@@ -1,6 +1,6 @@
 import requests
 import time
-import os
+import io
 import zipfile
 
 from src.domain.interfaces import APIClientInterface
@@ -141,7 +141,7 @@ class APISUNAT(APIClientInterface):
 
     def descargar_archivo(
         self, datos_archivo, token_acceso, periodo, numero_ticket, ruc
-    ) -> str:
+    ) -> io.BytesIO:
         url_descarga = "https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/archivoreporte"
         params_descarga = {
             "nomArchivoReporte": datos_archivo["nomArchivoReporte"],
@@ -159,37 +159,20 @@ class APISUNAT(APIClientInterface):
             )
             res_descarga.raise_for_status()
 
-            directorio_descargas = "descargas_sire"
-            os.makedirs(directorio_descargas, exist_ok=True)
+            zip_in_memory = io.BytesIO(res_descarga.content)
 
-            ruta_zip_temporal = os.path.join(
-                directorio_descargas, f"temp_{numero_ticket}.zip"
-            )
-
-            with open(ruta_zip_temporal, "wb") as f:
-                f.write(res_descarga.content)
-
-            nombre_final = f"{ruc}-{periodo}.csv"
-            ruta_archivo_final = os.path.join(directorio_descargas, nombre_final)
-
-            with zipfile.ZipFile(ruta_zip_temporal, "r") as zip_ref:
+            with zipfile.ZipFile(zip_in_memory, "r") as zip_ref:
                 archivos_extraidos = zip_ref.namelist()
 
                 if archivos_extraidos:
                     nombre_interno = archivos_extraidos[0]
+                    csv_bytes = zip_ref.read(nombre_interno)
+                    csv_in_memory = io.BytesIO(csv_bytes)
                     
-                    with open(ruta_archivo_final, "wb") as f_out:
-                        f_out.write(zip_ref.read(nombre_interno))
-
-            print(f"✓ Archivo listo y ordenado en: '{ruta_archivo_final}'")
-
-            if os.path.exists(ruta_zip_temporal):
-                os.remove(ruta_zip_temporal)
-
-            return ruta_archivo_final
+                    print(f"✓ Archivo {nombre_interno} extraído en memoria.")
+                    return csv_in_memory
+                else:
+                    raise ValueError("El archivo ZIP de SUNAT está vacío.")
 
         except Exception as e:
-            print(f"✗ Error al descargar o extraer el archivo: {e}")
-            if hasattr(e, "response") and e.response is not None:
-                print(f"Detalle: {e.response.text}")
-            raise RuntimeError(f"Fallo en la descarga: {e}")
+            raise RuntimeError(f"Fallo en la descarga o extracción en memoria: {e}")
