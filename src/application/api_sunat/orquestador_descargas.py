@@ -31,15 +31,15 @@ class OrquestadorDescargas:
                 )
                 if token:
                     return token
-            except Exception as e:
+            except Exception:
                 print(f"[{ruc}] Falló Token API. Intentando Playwright...")
 
             try:
                 return self.token_scraper.obtener_token_bearer(
                     ruc, usuario_sol.upper(), clave_sol
                 )
-            except Exception as e:
-                print(f"[{ruc}] Fallo Crítico en Playwright: {e}")
+            except Exception:
+                print(f"[{ruc}] Fallo Crítico en Playwright.")
                 return None
 
         token_acceso = obtener_token()
