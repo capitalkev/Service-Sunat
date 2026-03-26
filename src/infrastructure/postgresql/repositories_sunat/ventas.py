@@ -24,62 +24,87 @@ class VentasRepository:
         resultado = self.db.execute(query, {"ruc": ruc, "per": periodo}).fetchone()
         return resultado is not None
 
-    def guardar_lote_ventas(self, df_limpio: pd.DataFrame, ruc: str, periodo: str) -> int:
+    def guardar_lote_ventas(
+        self, df_limpio: pd.DataFrame, ruc: str, periodo_ref: str
+    ) -> int:
         if df_limpio.empty:
             return 0
 
-        tabla_temp = f"temp_ventas_{ruc}_{periodo}"
+        tabla_temp = f"temp_ventas_{ruc}"
 
-        # Usar self.engine.begin() asegura un COMMIT si todo sale bien, o un ROLLBACK si falla
         with self.engine.begin() as conn:
-            # 1. Subimos la data temporal
+            # 1. Subimos la data temporal consolidada
             df_limpio.to_sql(
-                name=tabla_temp, con=conn, if_exists='replace', index=False, chunksize=1000
+                name=tabla_temp,
+                con=conn,
+                if_exists="replace",
+                index=False,
+                chunksize=2000,
             )
-            
-            # 2. UPSERT a la tabla real
-            query_upsert = text(f"""
+
+            # 2. UPSERT a la tabla real (Añadiendo CAST a las fechas y números)
+            query_upsert = text(
+                f"""
                 INSERT INTO ventas_sunat (
                     ruc, razon_social, periodo, fecha_emision, fecha_vcto_pago, 
                     tipo_cp_doc, serie_cdp, nro_cp_doc, nro_doc_identidad, 
                     cliente_razon_social, total_cp, moneda, tipo_cambio, 
-                    serie_cp_modificado, nro_cp_modificado,
-                    ruc_cliente, periodo_tributario
+                    serie_cp_modificado, nro_cp_modificado
                 )
                 SELECT 
-                    ruc, razon_social, periodo, fecha_emision, fecha_vcto_pago, 
-                    tipo_cp_doc, serie_cdp, nro_cp_doc, nro_doc_identidad, 
-                    cliente_razon_social, total_cp, moneda, tipo_cambio, 
-                    serie_cp_modificado, nro_cp_modificado,
-                    :ruc_cliente, :periodo
+                    ruc, 
+                    razon_social, 
+                    periodo, 
+                    CAST(fecha_emision AS DATE), 
+                    CAST(fecha_vcto_pago AS DATE), 
+                    tipo_cp_doc, 
+                    serie_cdp, 
+                    nro_cp_doc, 
+                    nro_doc_identidad, 
+                    cliente_razon_social, 
+                    CAST(total_cp AS NUMERIC), 
+                    moneda, 
+                    CAST(tipo_cambio AS NUMERIC), 
+                    serie_cp_modificado, 
+                    nro_cp_modificado
                 FROM {tabla_temp}
-                ON CONFLICT (ruc_cliente, tipo_cp_doc, serie_cdp, nro_cp_doc) 
+                ON CONFLICT (ruc, tipo_cp_doc, serie_cdp, nro_cp_doc) 
                 DO NOTHING;
-            """)
-            
-            conn.execute(query_upsert, {"ruc_cliente": ruc, "periodo": periodo})
+            """
+            )
+
+            conn.execute(query_upsert)
             conn.execute(text(f"DROP TABLE {tabla_temp};"))
-            
+
         return len(df_limpio)
-    
-    def guardar_errores(self, registros_malos: list[dict], ruc: str, periodo: str, motivo: str) -> None:
+
+    def guardar_errores(
+        self, registros_malos: list[dict], ruc: str, periodo: str, motivo: str
+    ) -> None:
         """Guarda los registros que no pasaron las reglas de negocio en la tabla de errores."""
         if not registros_malos:
             return
 
-        query_errores = text("""
+        query_errores = text(
+            """
             INSERT INTO ventas_sunat_errores (ruc_cliente, periodo_tributario, motivo_error, datos_crudos)
             VALUES (:ruc, :per, :motivo, :datos)
-        """)
+        """
+        )
 
         try:
             for registro in registros_malos:
-                self.db.execute(query_errores, {
-                    "ruc": ruc,
-                    "per": periodo,
-                    "motivo": motivo,
-                    "datos": json.dumps(registro)  # Se convierte a JSON aquí, en la infraestructura
-                })
+                self.db.execute(
+                    query_errores,
+                    {
+                        "ruc": ruc,
+                        "per": periodo,
+                        "motivo": motivo,
+                        "datos": json.dumps(
+                            registro
+                        ),  # Se convierte a JSON aquí, en la infraestructura
+                    },
+                )
             self.db.commit()
         except Exception as e:
             self.db.rollback()

@@ -1,5 +1,4 @@
 import requests
-import time
 import io
 import zipfile
 
@@ -89,55 +88,44 @@ class APISUNAT(APIClientInterface):
             "codOrigenEnvio": "2",
         }
 
-        while True:
-            try:
-                res_estado = requests.get(
-                    url_estado,
-                    params=params_estado,
-                    headers=self._get_headers(token_acceso),
-                )
-                res_estado.raise_for_status()
-                registros = res_estado.json().get("registros", [])
+        try:
+            res_estado = requests.get(
+                url_estado,
+                params=params_estado,
+                headers=self._get_headers(token_acceso),
+            )
+            res_estado.raise_for_status()
+            registros = res_estado.json().get("registros", [])
 
-                if registros:
-                    registro_actual = registros[0]
-                    estado = registro_actual.get("codEstadoProceso")
-                    desc_estado = registro_actual.get("desEstadoProceso")
+            if registros:
+                registro_actual = registros[0]
+                estado = registro_actual.get("codEstadoProceso")
+                desc_estado = registro_actual.get("desEstadoProceso")
 
-                    print(f" -> Estado actual: {desc_estado} (Código: {estado})")
+                print(f" -> Ticket {numero_ticket} | Estado actual: {desc_estado} (Código: {estado})")
 
-                    if estado == "06":
-                        archivos = registro_actual.get("archivoReporte", [])
-
-                        if archivos:
-                            datos_archivo = {
-                                "nomArchivoReporte": archivos[0].get(
-                                    "nomArchivoReporte"
-                                ),
-                                "codTipoArchivoReporte": archivos[0].get(
-                                    "codTipoAchivoReporte", ""
-                                ),
-                                "codProceso": registro_actual.get("codProceso"),
-                            }
-                            print("✓ El archivo está listo.\n")
-
-                            return datos_archivo
-                        else:
-                            raise ValueError(
-                                "El ticket terminó, pero no se encontró el archivo."
-                            )
-
-                    elif estado == "03":
-                        raise RuntimeError(
-                            "El proceso terminó con errores según SUNAT."
-                        )
+                if estado == "06":
+                    archivos = registro_actual.get("archivoReporte", [])
+                    if archivos:
+                        datos_archivo = {
+                            "nomArchivoReporte": archivos[0].get("nomArchivoReporte"),
+                            "codTipoArchivoReporte": archivos[0].get("codTipoAchivoReporte", ""),
+                            "codProceso": registro_actual.get("codProceso"),
+                        }
+                        return {"estado": "06", "datos_archivo": datos_archivo}
                     else:
-                        time.sleep(3)
-                else:
-                    time.sleep(3)
+                        return {"estado": "ERROR", "mensaje": "Ticket en 06 pero sin archivo"}
 
-            except Exception as e:
-                raise RuntimeError(f"Error al consultar estado: {e}")
+                elif estado == "03":
+                    return {"estado": "03", "mensaje": "Proceso terminó con errores según SUNAT"}
+                
+                else:
+                    return {"estado": estado, "mensaje": desc_estado}
+            else:
+                return {"estado": "DESCONOCIDO", "mensaje": "No se encontraron registros"}
+
+        except Exception as e:
+            raise RuntimeError(f"Error al consultar estado: {e}")
 
     def descargar_archivo(
         self, datos_archivo, token_acceso, periodo, numero_ticket, ruc

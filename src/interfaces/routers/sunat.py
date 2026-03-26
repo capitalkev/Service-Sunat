@@ -5,12 +5,11 @@ from datetime import datetime
 
 from src.application.enrolados.get_enrolados import GetEnrolado
 from src.application.enrolados.save_enrolados import SaveEnrolado
-from src.application.api_sunat.orquestador_descargas import OrquestadorDescargas
+from src.application.sunat.orquestador_descargas import OrquestadorDescargas
 
 from src.interfaces.dependencias.enrolado import (
     dp_get_enrolado,
     dp_save_enrolado,
-    get_orquestador_service,
 )
 
 router = APIRouter(prefix="/api-sunat", tags=["api-sunat"])
@@ -24,44 +23,34 @@ class CredencialesManuales(BaseModel):
     client_secret: str
 
 
-def generar_periodos(meses_hacia_atras: int, incluir_mes_actual: bool = True) -> list:
+def generar_periodos(cantidad_meses: int) -> list:
     """
-    Genera periodos en formato YYYYMM.
-    Si incluir_mes_actual es True, empieza a contar desde el mes actual.
-    Si es False, empieza a contar desde el mes anterior.
+    Genera una lista de periodos en formato YYYYMM, comenzando desde el mes actual
+    hacia atrás, según la cantidad de meses especificada.
     """
     hoy = datetime.now()
-    anio_actual, mes_actual = hoy.year, hoy.month
     periodos = []
-
-    # Si no queremos el mes actual, retrocedemos un mes antes de empezar
-    if not incluir_mes_actual:
-        mes_actual -= 1
-        if mes_actual == 0:
-            mes_actual = 12
-            anio_actual -= 1
-
-    for _ in range(meses_hacia_atras):
-        periodos.append(f"{anio_actual}{mes_actual:02d}")
-        mes_actual -= 1
-        if mes_actual == 0:
-            mes_actual = 12
-            anio_actual -= 1
-
+    for i in range(cantidad_meses):
+        mes = hoy.month - i
+        año = hoy.year
+        while mes <= 0:
+            mes += 12
+            año -= 1
+        periodos.append(f"{año}{mes:02d}")
     return periodos
 
 
 @router.post("/manual")
 def descargar_manual(
     datos: CredencialesManuales,
-    orquestador: OrquestadorDescargas = Depends(get_orquestador_service),
+    orquestador: OrquestadorDescargas = Depends(OrquestadorDescargas),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
 ):
-    periodos = generar_periodos(15, incluir_mes_actual=True)
+    periodos = generar_periodos(15)
 
     resultado = orquestador.execute(
         ruc=datos.ruc,
-        usuario_sol=datos.usuario_sol,
+        usuario_sol=datos.usuario_sol.upper(),
         clave_sol=datos.clave_sol,
         client_id=datos.client_id,
         client_secret=datos.client_secret,
@@ -70,8 +59,8 @@ def descargar_manual(
 
     if not resultado.get("valido"):
         raise HTTPException(
-            status_code=401, 
-            detail="Error de autenticación. Verifica que el RUC, Usuario y Clave SOL sean correctos."
+            status_code=401,
+            detail="Error de autenticación. Verifica que el RUC, Usuario y Clave SOL sean correctos.",
         )
 
     try:
@@ -90,16 +79,12 @@ def descargar_manual(
 @router.post("/procesar-lote-automatico")
 def procesar_lote_automatico(
     limit: int = 2,
-    orquestador: OrquestadorDescargas = Depends(get_orquestador_service),
+    orquestador: OrquestadorDescargas = Depends(OrquestadorDescargas),
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
-    enrolados = repo.execute(limite=limit)
-    if not enrolados:
-        raise HTTPException(
-            status_code=404, detail="No hay enrolados en la base de datos."
-        )
+    enrolados = repo.execute(limite=limit)  # enrolados
+    periodos = generar_periodos(1)  # periodos
 
-    periodos = generar_periodos(1, incluir_mes_actual=True) 
     resultados_lote = []
 
     for emp in enrolados:
@@ -113,15 +98,13 @@ def procesar_lote_automatico(
         )
         resultados_lote.append(
             {
-                "ruc": emp["ruc"],
-                "detalle": resultado.get("detalle", []),
+                "detalle": resultado,
             }
         )
 
     return {
         "status": "success",
-        "tipo": "automatico_lote",
-        "periodo_procesado": periodos[0],
-        "total_enrolados": len(enrolados),
+        "enrolados": enrolados,
+        "periodos": periodos,
         "resultados": resultados_lote,
     }

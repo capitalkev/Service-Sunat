@@ -1,48 +1,51 @@
-# src/application/api_sunat/orquestador_descargas.py
-
-from datetime import datetime
-from src.application.api_sunat.get_sunat import APIService
-from src.domain.interfaces import TokenScraperInterface
-from src.application.etl.procesar_ventas import ProcesarVentasETL
+from src.application.sunat.get_token_api import GetTokenAPI
+from src.application.sunat.get_token_scraping import GetTokenScraping
 
 
 class OrquestadorDescargas:
     def __init__(
         self,
-        api_service: APIService,
-        token_scraper: TokenScraperInterface,
-        etl_service: ProcesarVentasETL,
     ):
-        self.api = api_service
-        self.token_scraper = token_scraper
-        self.etl = etl_service
+        self.token_api = GetTokenAPI()
+        self.token_scraper = GetTokenScraping()
 
     def execute(
         self, ruc, usuario_sol, clave_sol, client_id, client_secret, periodos: list
     ):
-        resultados = []
 
-        periodo_actual = datetime.now().strftime("%Y%m")
+        resultados = {}
 
         def obtener_token():
             try:
-                token = self.api.sunat.get_token(
+                print(f"[{ruc}] 1. Intentando obtener Token vía API...")
+                token1 = self.token_api.execute(
                     ruc, usuario_sol, clave_sol, client_id, client_secret
                 )
-                if token:
-                    return token
+                print(f"1. Token API obtenido: {token1}")
+                if token1:
+                    return token1
             except Exception:
                 print(f"[{ruc}] Falló Token API. Intentando Playwright...")
 
             try:
-                return self.token_scraper.obtener_token_bearer(
-                    ruc, usuario_sol.upper(), clave_sol
+                print(f"[{ruc}] 2. Intentando obtener Token vía Playwright...")
+                token2 = self.token_scraper.execute(
+                    ruc, usuario_sol, clave_sol
                 )
+                print(f"2. Token Playwright obtenido: {token2}")
+                if token2:
+                    return token2
             except Exception:
                 print(f"[{ruc}] Fallo Crítico en Playwright.")
                 return None
-
+            
         token_acceso = obtener_token()
+        
+        resultados["ruc"] = ruc
+        resultados["token"] = token_acceso
+        
+
+        """
         if not token_acceso:
             return {
                 "valido": False,
@@ -57,10 +60,8 @@ class OrquestadorDescargas:
             }
 
         for periodo in periodos:
-            if periodo != periodo_actual and self.etl.repository.existe_periodo(
-                ruc, periodo
-            ):
-                print(f"[{ruc}] Periodo {periodo} ya está en BD. Saltando descarga...")
+            if self.etl.repository.existe_periodo(ruc, periodo):
+                print(f"[{ruc}] Periodo {periodo} ya está en BD. Saltando solicitud...")
                 resultados.append(
                     {
                         "periodo": periodo,
@@ -74,26 +75,21 @@ class OrquestadorDescargas:
 
             while reintentos < 2:
                 try:
-                    print(f"[{ruc}] Descargando periodo {periodo} desde SUNAT...")
-                    res_api = self.api.execute(
-                        periodo=periodo, token_acceso=token_acceso, ruc=ruc
+                    print(f"[{ruc}] Solicitando ticket para periodo {periodo} desde SUNAT...")
+                    
+                    numero_ticket = self.api.sunat.solicitar_descarga(
+                        periodo=periodo, token_acceso=token_acceso
                     )
 
-                    # Usamos ÚNICAMENTE la versión en memoria para Cloud Run
-                    if "archivo_memoria" in res_api:
-                        res_etl = self.etl.execute(
-                            res_api["archivo_memoria"], ruc, periodo
-                        )
-
-                        # 1. Guardamos las estadísticas del ETL en la respuesta
-                        res_api["etl_stats"] = res_etl
-
-                        # 2. Cerramos y eliminamos el buffer para liberar RAM y permitir JSON serialization
-                        res_api["archivo_memoria"].close()
-                        del res_api["archivo_memoria"]
+                    self.tickets_repo.guardar_ticket(numero_ticket, ruc, periodo)
 
                     resultados.append(
-                        {"periodo": periodo, "status": "success", "data": res_api}
+                        {
+                            "periodo": periodo, 
+                            "status": "PENDIENTE", 
+                            "ticket": numero_ticket,
+                            "mensaje": "Ticket generado y encolado para descarga asíncrona."
+                        }
                     )
                     break
 
@@ -115,3 +111,6 @@ class OrquestadorDescargas:
                         break
 
         return {"valido": True, "detalle": resultados}
+        """
+
+        return {"resultados": resultados}

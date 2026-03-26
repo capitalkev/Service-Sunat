@@ -137,9 +137,10 @@ class ProcesarVentasETL:
             df_limpio = df_limpio.replace({np.nan: None, pd.NaT: None})
 
             # 5. Carga (Load a la BD)
-            self.repository.guardar_lote_ventas(df_limpio, ruc_cliente, periodo)
+            #self.repository.guardar_lote_ventas(df_limpio, ruc_cliente, periodo)
 
         return {
-            "procesados_ok": len(df_limpio),
+            "procesados_ok": len(df_limpio) if not df_limpio.empty else 0,
             "enviados_cuarentena": errores_encontrados,
+            "df_limpio": df_limpio # <-- AÑADIR ESTO PARA DEVOLVER LOS DATOS
         }

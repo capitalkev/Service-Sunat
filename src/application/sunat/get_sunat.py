@@ -12,7 +12,6 @@ class APIService:
         )
 
         if datos_archivo and isinstance(datos_archivo, dict):
-            # Ahora esto retorna un io.BytesIO
             archivo_memoria = self.sunat.descargar_archivo(
                 datos_archivo, token_acceso, periodo, numero_ticket, ruc
             )
