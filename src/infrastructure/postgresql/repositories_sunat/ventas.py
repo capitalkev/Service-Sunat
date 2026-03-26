@@ -109,3 +109,7 @@ class VentasRepository:
         except Exception as e:
             self.db.rollback()
             raise e
+
+    def guardar_ticket(self, ruc: str, periodo: str, ticket: str) -> None:
+        """Guarda el ticket de descarga en la tabla de tickets."""
+        

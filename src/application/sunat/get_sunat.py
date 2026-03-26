@@ -6,7 +6,7 @@ class APIService:
         self.sunat = repository
 
     def execute(self, periodo: str, token_acceso: str, ruc: str):
-        numero_ticket = self.sunat.solicitar_descarga(periodo, token_acceso)
+        numero_ticket = self.sunat.generar_ticket(periodo, token_acceso)
         datos_archivo = self.sunat.verificar_estado(
             numero_ticket, token_acceso, periodo
         )

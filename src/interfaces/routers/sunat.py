@@ -83,7 +83,7 @@ def procesar_lote_automatico(
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)  # enrolados
-    periodos = generar_periodos(1)  # periodos
+    periodos = generar_periodos(5)  # periodos
 
     resultados_lote = []
 

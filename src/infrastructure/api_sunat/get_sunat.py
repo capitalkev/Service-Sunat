@@ -38,7 +38,8 @@ class APISUNAT(APIClientInterface):
         except Exception as e:
             raise ValueError(f"Fallo crítico en autenticación: {e}")
 
-    def solicitar_descarga(self, periodo, token_acceso) -> str:
+    # Generar Ticket
+    def generar_ticket(self, periodo, token_acceso) -> str:
         url_exportar = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvie/propuesta/web/propuesta/{periodo}/exportapropuesta"
         params_exportar = {"codTipoArchivo": "1"}
 
@@ -54,7 +55,7 @@ class APISUNAT(APIClientInterface):
             if not numero_ticket:
                 raise ValueError("No se recibió un número de ticket de SUNAT.")
 
-            print(f"✓ Ticket generado: {numero_ticket}\n")
+            print(f"Ticket generado: {numero_ticket}")
             return numero_ticket
 
         except requests.exceptions.HTTPError as e:
