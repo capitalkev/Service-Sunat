@@ -9,7 +9,7 @@ class PlaywrightTokenScraper(TokenScraperInterface):
 
         with sync_playwright() as p:
             # headless=False si quieres ver cómo el navegador se mueve solo
-            browser = p.chromium.launch(headless=True) 
+            browser = p.chromium.launch(headless=False) 
             context = browser.new_context()
             page = context.new_page()
 
@@ -33,6 +33,13 @@ class PlaywrightTokenScraper(TokenScraperInterface):
                 page.locator("#txtContrasena").fill(clave_sol)
                 page.locator("#btnAceptar").click()
                 page.wait_for_timeout(1000)
+                #Si las claves son incorrectas.
+                error_locator = page.locator("#lblHeader")
+                if error_locator.is_visible():
+                    texto_error = error_locator.inner_text()
+                    if "Falla en la autenticación" in texto_error:
+                        raise ValueError(f"ATENCIÓN: El RUC {ruc} tiene claves incorrectas.")
+                # Si aparece un modal luego del login la eliminamos.
                 page.evaluate("""
                     const fondo = document.getElementById('divModalCampanaBak');
                     if (fondo) fondo.remove();

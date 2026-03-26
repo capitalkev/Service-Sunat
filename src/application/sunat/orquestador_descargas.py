@@ -1,13 +1,15 @@
 from src.application.sunat.get_token_api import GetTokenAPI
 from src.application.sunat.get_token_scraping import GetTokenScraping
+from src.infrastructure.api_sunat.get_sunat import APISUNAT
+from src.infrastructure.playwright_sunat.scraper import PlaywrightTokenScraper
 
 
 class OrquestadorDescargas:
     def __init__(
-        self,
+        self
     ):
-        self.token_api = GetTokenAPI()
-        self.token_scraper = GetTokenScraping()
+        self.token_api = GetTokenAPI(APISUNAT())
+        self.token_scraper = GetTokenScraping(PlaywrightTokenScraper())
 
     def execute(
         self, ruc, usuario_sol, clave_sol, client_id, client_secret, periodos: list
@@ -21,7 +23,6 @@ class OrquestadorDescargas:
                 token1 = self.token_api.execute(
                     ruc, usuario_sol, clave_sol, client_id, client_secret
                 )
-                print(f"1. Token API obtenido: {token1}")
                 if token1:
                     return token1
             except Exception:
@@ -32,7 +33,6 @@ class OrquestadorDescargas:
                 token2 = self.token_scraper.execute(
                     ruc, usuario_sol, clave_sol
                 )
-                print(f"2. Token Playwright obtenido: {token2}")
                 if token2:
                     return token2
             except Exception:
