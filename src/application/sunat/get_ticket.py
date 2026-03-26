@@ -1,14 +1,14 @@
-from src.domain.interfaces import APIClientInterface
+from src.domain.interfaces import TicketsInterface
 
 
-class GetTicketAPI:
-    def __init__(self, sunat_client: APIClientInterface):
-        self.sunat = sunat_client
+class GetTicket:
+    def __init__(self, ticket: TicketsInterface):
+        self.ticket = ticket
 
-    def execute(self, periodo, token_acceso):
+    def execute(self, ruc, periodo):
         resultados = {}
         for p in periodo:
-            ticket = self.sunat.generar_ticket(p, token_acceso)
-            resultados[p] = ticket
+            numero_ticket = self.ticket.traer_ticket(ruc, p)
+            resultados[p] = numero_ticket
 
         return resultados

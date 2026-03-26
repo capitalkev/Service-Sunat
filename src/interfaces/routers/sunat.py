@@ -5,11 +5,12 @@ from datetime import datetime
 
 from src.application.enrolados.get_enrolados import GetEnrolado
 from src.application.enrolados.save_enrolados import SaveEnrolado
-from src.application.sunat.orquestador_descargas import OrquestadorDescargas
+from src.application.sunat.orquestador_tickets import OrquestadorDescargas
 
 from src.interfaces.dependencias.enrolado import (
     dp_get_enrolado,
     dp_save_enrolado,
+    dp_orquestador,
 )
 
 router = APIRouter(prefix="/api-sunat", tags=["api-sunat"])
@@ -43,7 +44,7 @@ def generar_periodos(cantidad_meses: int) -> list:
 @router.post("/manual")
 def descargar_manual(
     datos: CredencialesManuales,
-    orquestador: OrquestadorDescargas = Depends(OrquestadorDescargas),
+    orquestador: OrquestadorDescargas = Depends(dp_orquestador),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
 ):
     periodos = generar_periodos(15)
@@ -76,10 +77,10 @@ def descargar_manual(
     }
 
 
-@router.post("/procesar-lote-automatico")
+@router.post("/generar-tickets-automaticos")
 def procesar_lote_automatico(
     limit: int = 2,
-    orquestador: OrquestadorDescargas = Depends(OrquestadorDescargas),
+    orquestador: OrquestadorDescargas = Depends(dp_orquestador),
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)  # enrolados
@@ -104,7 +105,36 @@ def procesar_lote_automatico(
 
     return {
         "status": "success",
-        "enrolados": enrolados,
-        "periodos": periodos,
+        "resultados": resultados_lote,
+    }
+
+
+@router.get("/descargar-archivos")
+def descargar_archivos(
+    limit: int = 2,
+    orquestador: OrquestadorDescargas = Depends(dp_orquestador),
+    repo: GetEnrolado = Depends(dp_get_enrolado),
+):
+    enrolados = repo.execute(limite=limit)
+    periodos = generar_periodos(5)
+
+    resultados_lote = []
+
+    for emp in enrolados:
+        resultado = orquestador.execute(
+            ruc=emp["ruc"],
+            usuario_sol=emp["usuario_sol"],
+            clave_sol=emp["clave_sol"],
+            client_id=emp["client_id"],
+            client_secret=emp["client_secret"],
+            periodos=periodos,
+        )
+        resultados_lote.append(
+            {
+                "detalle": resultado,
+            }
+        )
+    return {
+        "status": "success",
         "resultados": resultados_lote,
     }

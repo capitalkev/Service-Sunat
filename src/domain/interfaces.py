@@ -1,5 +1,6 @@
 from typing import Any, Protocol
 import io
+from typing import Optional
 
 
 class ScriptInterface(Protocol):
@@ -42,3 +43,8 @@ class VentasSunatInterface(Protocol):
     def obtener_ventas(self, ruc: str, periodo: str, token_acceso: str) -> dict: ...
     
     def save_ticket(self, ruc: str, periodo: str, ticket: str) -> None: ...
+    
+class TicketsInterface(Protocol):
+    def guardar_ticket(self, ticket: str, ruc: str, periodo: str) -> None: ...
+    
+    def traer_ticket(self, ruc: str, periodo: str) -> Optional[str]: ...

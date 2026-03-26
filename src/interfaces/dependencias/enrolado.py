@@ -6,6 +6,8 @@ from src.application.etl.procesar_ventas import ProcesarVentasETL
 from src.application.enrolados.get_enrolados import GetEnrolado
 from src.application.enrolados.save_enrolados import SaveEnrolado
 
+from src.application.sunat.orquestador_tickets import OrquestadorDescargas
+from src.application.sunat.save_ticket import SaveTicket
 from src.infrastructure.api_sunat.get_sunat import APISUNAT
 from src.infrastructure.postgresql.connection_sunat import get_db
 from src.infrastructure.postgresql.repositories_sunat.sunat import ScriptRepository
@@ -35,3 +37,12 @@ def get_etl_service(db: Session = Depends(get_db)) -> ProcesarVentasETL:
 def get_api_service() -> APIService:
     sunat_client = APISUNAT()
     return APIService(repository=sunat_client)
+
+def dp_save_ticket(db: Session = Depends(get_db)) -> SaveTicket:
+    """Inyecta la sesión de BD al repositorio de tickets, y el repo al caso de uso."""
+    repository = TicketsRepository(db)
+    return SaveTicket(repository)
+
+def dp_orquestador(guardar_ticket: SaveTicket = Depends(dp_save_ticket)) -> OrquestadorDescargas:
+    """Inyecta el caso de uso SaveTicket dentro del Orquestador."""
+    return OrquestadorDescargas(guardar_ticket=guardar_ticket)
