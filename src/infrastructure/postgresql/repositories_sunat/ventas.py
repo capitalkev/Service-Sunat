@@ -25,7 +25,7 @@ class VentasRepository:
         return resultado is not None
 
     def guardar_lote_ventas(
-        self, df_limpio: pd.DataFrame, ruc: str, periodo_ref: str
+        self, df_limpio: pd.DataFrame, ruc: str
     ) -> int:
         if df_limpio.empty:
             return 0
@@ -77,35 +77,3 @@ class VentasRepository:
             conn.execute(text(f"DROP TABLE {tabla_temp};"))
 
         return len(df_limpio)
-
-    def guardar_errores(
-        self, registros_malos: list[dict], ruc: str, periodo: str, motivo: str
-    ) -> None:
-        """Guarda los registros que no pasaron las reglas de negocio en la tabla de errores."""
-        if not registros_malos:
-            return
-
-        query_errores = text(
-            """
-            INSERT INTO ventas_sunat_errores (ruc_cliente, periodo_tributario, motivo_error, datos_crudos)
-            VALUES (:ruc, :per, :motivo, :datos)
-        """
-        )
-
-        try:
-            for registro in registros_malos:
-                self.db.execute(
-                    query_errores,
-                    {
-                        "ruc": ruc,
-                        "per": periodo,
-                        "motivo": motivo,
-                        "datos": json.dumps(
-                            registro
-                        ),  # Se convierte a JSON aquí, en la infraestructura
-                    },
-                )
-            self.db.commit()
-        except Exception as e:
-            self.db.rollback()
-            raise e

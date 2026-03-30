@@ -1,8 +1,6 @@
 import io
-
 import pandas as pd
 import numpy as np
-import os
 from src.infrastructure.postgresql.repositories_sunat.ventas import VentasRepository
 
 
@@ -10,19 +8,14 @@ class ProcesarVentasETL:
     def __init__(self, repository: VentasRepository):
         self.repository = repository
 
-    def execute(self, csv_file_obj: io.BytesIO, ruc_cliente: str, periodo: str) -> dict:
-        lineas_malas = []
-
-        def capturar_lineas_malas(bad_line):
-            lineas_malas.append(bad_line)
-            return None
+    def execute(self, csv_file_obj: io.BytesIO) -> dict:
 
         # 1. Leer como texto atrapando comas rotas
         df = pd.read_csv(
             csv_file_obj,
             encoding="utf-8",
             engine="python",
-            on_bad_lines=capturar_lineas_malas,
+            on_bad_lines="skip",
             dtype=str,
         )
 
@@ -45,22 +38,7 @@ class ProcesarVentasETL:
 
         mask_filas_malas = mask_ruc_malo | mask_periodo_malo | mask_fecha_mala
 
-        df_cuarentena = df[mask_filas_malas].copy()
         df_limpio = df[~mask_filas_malas].copy()
-
-        errores_encontrados = len(df_cuarentena) + len(lineas_malas)
-        if errores_encontrados > 0:
-            print(f"[{ruc_cliente}] {errores_encontrados} errores detectados. Guardando en BD...")
-            
-            if not df_cuarentena.empty:
-                registros_malos = df_cuarentena.to_dict(orient="records")
-                
-                self.repository.guardar_errores(
-                    registros_malos=registros_malos,
-                    ruc=ruc_cliente,
-                    periodo=periodo,
-                    motivo="Fallo en reglas de negocio (RUC/Periodo/Fecha inválidos)"
-                )
 
         if not df_limpio.empty:
             columnas_inutiles = [
@@ -136,11 +114,7 @@ class ProcesarVentasETL:
             # Convertir NaNs a Nones para PostgreSQL
             df_limpio = df_limpio.replace({np.nan: None, pd.NaT: None})
 
-            # 5. Carga (Load a la BD)
-            #self.repository.guardar_lote_ventas(df_limpio, ruc_cliente, periodo)
-
         return {
             "procesados_ok": len(df_limpio) if not df_limpio.empty else 0,
-            "enviados_cuarentena": errores_encontrados,
-            "df_limpio": df_limpio # <-- AÑADIR ESTO PARA DEVOLVER LOS DATOS
+            "df_limpio": df_limpio,
         }

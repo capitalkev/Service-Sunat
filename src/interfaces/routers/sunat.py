@@ -86,7 +86,7 @@ def procesar_lote_automatico(
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)  # enrolados
-    periodos = generar_periodos(5)  # periodos
+    periodos = generar_periodos(13)  # periodos
 
     resultados_lote = []
 
@@ -118,7 +118,7 @@ def descargar_archivos(
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)
-    periodos = generar_periodos(5)
+    periodos = generar_periodos(13)
 
     resultados_lote = []
 

@@ -11,7 +11,7 @@ class ScriptRepository(ScriptInterface):
         self.db = db
 
     def get_enrolado(self, limite: int) -> Any:
-        query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados"
+        query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados where ruc = '20601342309'"
 
         if limite is not None:
             query_str += f" LIMIT {limite}"
@@ -19,13 +19,6 @@ class ScriptRepository(ScriptInterface):
         query = text(query_str)
         result = self.db.execute(query)
         return [dict(row) for row in result.mappings()]
-
-    def get_enrolado_by_ruc(self, ruc: str) -> Any:
-        query = text(
-            "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados WHERE ruc = :ruc"
-        )
-        result = self.db.execute(query, {"ruc": ruc}).fetchone()
-        return dict(result._mapping) if result else None
 
     def save_enrolado(self, datos: dict) -> None:
         check_query = text("SELECT id FROM enrolados WHERE ruc = :ruc")

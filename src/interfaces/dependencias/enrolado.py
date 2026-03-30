@@ -55,6 +55,8 @@ def dp_orquestador_tickets(db: Session = Depends(get_db)) -> OrquestadorTickets:
     api_sunat = APISUNAT()
     playwright_scraper = PlaywrightTokenScraper()
     tickets_repo = TicketsRepository(db)
+    ventas_repo = VentasRepository(db)
+    
     get_token_api = GetTokenAPI(api_sunat)
     get_token_scraper = GetTokenScraping(playwright_scraper)
     create_ticket = CreateTicket(api_sunat)
@@ -64,7 +66,8 @@ def dp_orquestador_tickets(db: Session = Depends(get_db)) -> OrquestadorTickets:
         token_api=get_token_api,
         token_scraper=get_token_scraper,
         generar_ticket=create_ticket,
-        guardar_ticket=save_ticket
+        guardar_ticket=save_ticket,
+        ventas_repo=ventas_repo
     )
 
 def dp_orquestador_descargas(db: Session = Depends(get_db)) -> OrquestadorDescargas:
@@ -73,14 +76,18 @@ def dp_orquestador_descargas(db: Session = Depends(get_db)) -> OrquestadorDescar
     api_sunat = APISUNAT()
     playwright_scraper = PlaywrightTokenScraper()
     tickets_repo = TicketsRepository(db)
+    ventas_repo = VentasRepository(db)
 
     get_token_api = GetTokenAPI(api_sunat)
     get_token_scraper = GetTokenScraping(playwright_scraper)
     get_ticket = GetTicket(tickets_repo)
+    etl_ventas = ProcesarVentasETL(ventas_repo)
 
     return OrquestadorDescargas(
         token_api=get_token_api,
         token_scraper=get_token_scraper,
         get_ticket=get_ticket,
-        sunat_api=api_sunat
+        sunat_api=api_sunat,
+        etl_ventas=etl_ventas,
+        ventas_repo=ventas_repo
     )

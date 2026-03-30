@@ -2,6 +2,7 @@ from src.application.sunat.create_ticket import CreateTicket
 from src.application.sunat.get_token_api import GetTokenAPI
 from src.application.sunat.get_token_scraping import GetTokenScraping
 from src.application.sunat.save_ticket import SaveTicket
+from src.infrastructure.postgresql.repositories_sunat.ventas import VentasRepository
 
 
 class OrquestadorTickets:
@@ -10,12 +11,14 @@ class OrquestadorTickets:
         token_api: GetTokenAPI,
         token_scraper: GetTokenScraping,
         generar_ticket: CreateTicket,
-        guardar_ticket: SaveTicket
+        guardar_ticket: SaveTicket,
+        ventas_repo: VentasRepository
     ):
         self.token_api = token_api
         self.token_scraper = token_scraper
         self.generar_ticket = generar_ticket
         self.guardar_ticket = guardar_ticket
+        self.ventas_repo = ventas_repo
 
     def execute(
         self, ruc, usuario_sol, clave_sol, client_id, client_secret, periodos: list
@@ -45,6 +48,10 @@ class OrquestadorTickets:
         token_acceso = obtener_token()
 
         for periodo in periodos:
+            if self.ventas_repo.existe_periodo(ruc, periodo):
+                print(f"[{ruc}] Ventas del periodo {periodo} ya existen en BD. Omitiendo generación de ticket.")
+                resultados[periodo] = {"estado": "VENTAS_YA_EXISTEN_EN_BD"}
+                continue
             try:
                 numero_ticket = self.generar_ticket.execute(periodo, token_acceso)
 
