@@ -1,6 +1,7 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from src.application.enrolados.get_only_enrolados import GetOnlyEnrolado
 from src.application.sunat.create_ticket import CreateTicket
 from src.application.sunat.get_sunat import APIService
 from src.application.etl.procesar_ventas import ProcesarVentasETL
@@ -24,6 +25,10 @@ from src.infrastructure.postgresql.repositories_sunat.ventas import VentasReposi
 def dp_get_enrolado(db: Session = Depends(get_db)) -> GetEnrolado:
     repository = ScriptRepository(db)
     return GetEnrolado(repository)
+
+def dp_get_only_enrolado(db: Session = Depends(get_db)) -> GetOnlyEnrolado:
+    repository = ScriptRepository(db)
+    return GetOnlyEnrolado(repository)
 
 
 def dp_save_enrolado(db: Session = Depends(get_db)) -> SaveEnrolado:

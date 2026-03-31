@@ -18,6 +18,12 @@ class ScriptRepository(ScriptInterface):
 
         query = text(query_str)
         result = self.db.execute(query)
+        return [dict(row) for row in result.mappings()]
+    
+    def get_only_enrolado(self, ruc:str) -> Any:
+        query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados where ruc = :ruc"
+        query = text(query_str)
+        result = self.db.execute(query, {"ruc": ruc})
         return [dict(row) for row in result.mappings()] 
 
     def save_enrolado(self, datos: dict) -> None:
