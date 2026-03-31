@@ -100,28 +100,13 @@ class OrquestadorDescargas:
                         "procesados_ok": resultado_etl.get("procesados_ok"),
                     }
                 else:
+                    print(f"[{ruc}] Ticket {numero_ticket} no está listo. Estado SUNAT: {estado_codigo}")
                     resultados[periodo] = {
                         "ticket": numero_ticket,
-                        "estado": "PROCESADO_Y_GUARDADO",
-                        "procesados_ok": resultado_etl.get("procesados_ok"),
+                        "estado": f"PENDIENTE_EN_SUNAT_ESTADO_{estado_codigo}"
                     }
 
             except Exception as e:
                 print(f"[{ruc}] Error al procesar ticket {numero_ticket} (Periodo: {periodo}): {e}")
-                
-                if archivo_csv_en_memoria is not None:
-                    # Crear carpeta si no existe
-                    os.makedirs("csv_errores_sunat", exist_ok=True)
-                    ruta_guardado = f"csv_errores_sunat/error_{ruc}_{periodo}.csv"
-                    
-                    archivo_csv_en_memoria.seek(0)
-                    
-                    # Escribimos los bytes físicos al disco duro
-                    with open(ruta_guardado, "wb") as f:
-                        f.write(archivo_csv_en_memoria.read())
-                        
-                    print(f"[{ruc}] Archivo problemático guardado localmente en '{ruta_guardado}' para tu análisis!")
-
-                resultados[periodo] = {"estado": "ERROR_PROCESO", "error": str(e)}
 
         return {"ruc": ruc, "resultados": resultados}
