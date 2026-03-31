@@ -9,7 +9,7 @@ class PlaywrightTokenScraper(TokenScraperInterface):
 
         with sync_playwright() as p:
             # headless=False si quieres ver cómo el navegador se mueve solo
-            browser = p.chromium.launch(headless=False) 
+            browser = p.chromium.launch(headless=True) 
             context = browser.new_context()
             page = context.new_page()
 

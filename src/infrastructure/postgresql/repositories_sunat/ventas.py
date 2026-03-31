@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -10,6 +12,11 @@ class VentasRepository:
 
     def existe_periodo(self, ruc: str, periodo: str) -> bool:
         """Verifica si ya existen ventas para este cliente y periodo en la BD."""
+        periodo_actual = datetime.now().strftime("%Y%m")
+        
+        if periodo == periodo_actual:
+            return False
+
         query = text(
             """
             SELECT 1 FROM ventas_sunat 
