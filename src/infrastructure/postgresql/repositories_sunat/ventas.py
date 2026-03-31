@@ -1,7 +1,3 @@
-# src/infrastructure/postgresql/repositories_sunat/ventas.py
-
-import json
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
@@ -39,7 +35,8 @@ class VentasRepository:
                 con=conn,
                 if_exists="replace",
                 index=False,
-                chunksize=2000,
+                chunksize=4000,
+                method='multi'  
             )
 
             # 2. UPSERT a la tabla real (Añadiendo CAST a las fechas y números)

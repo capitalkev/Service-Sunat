@@ -11,14 +11,14 @@ class ScriptRepository(ScriptInterface):
         self.db = db
 
     def get_enrolado(self, limite: int) -> Any:
-        query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados where ruc = '20601342309'"
+        query_str = "SELECT ruc, usuario_sol, clave_sol, client_id, client_secret FROM enrolados"
 
         if limite is not None:
             query_str += f" LIMIT {limite}"
 
         query = text(query_str)
         result = self.db.execute(query)
-        return [dict(row) for row in result.mappings()]
+        return [dict(row) for row in result.mappings()] 
 
     def save_enrolado(self, datos: dict) -> None:
         check_query = text("SELECT id FROM enrolados WHERE ruc = :ruc")

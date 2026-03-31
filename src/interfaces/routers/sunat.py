@@ -49,7 +49,7 @@ def descargar_manual(
     orquestador: OrquestadorTickets = Depends(dp_orquestador_tickets),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
 ):
-    periodos = generar_periodos(15)
+    periodos = generar_periodos(13)
 
     resultado = orquestador.execute(
         ruc=datos.ruc,
@@ -86,7 +86,7 @@ def procesar_lote_automatico(
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)  # enrolados
-    periodos = generar_periodos(13)  # periodos
+    periodos = generar_periodos(1)  # periodos
 
     resultados_lote = []
 
@@ -118,7 +118,7 @@ def descargar_archivos(
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute(limite=limit)
-    periodos = generar_periodos(13)
+    periodos = generar_periodos(1)
 
     resultados_lote = []
 

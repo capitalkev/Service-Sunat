@@ -109,20 +109,18 @@ class OrquestadorDescargas:
             except Exception as e:
                 print(f"[{ruc}] Error al procesar ticket {numero_ticket} (Periodo: {periodo}): {e}")
                 
-                # --- NUEVA LÓGICA: GUARDAR EL ARCHIVO SI FALLÓ ---
                 if archivo_csv_en_memoria is not None:
                     # Crear carpeta si no existe
                     os.makedirs("csv_errores_sunat", exist_ok=True)
                     ruta_guardado = f"csv_errores_sunat/error_{ruc}_{periodo}.csv"
                     
-                    # Pandas mueve el puntero de lectura al final, lo regresamos al inicio con seek(0)
                     archivo_csv_en_memoria.seek(0)
                     
                     # Escribimos los bytes físicos al disco duro
                     with open(ruta_guardado, "wb") as f:
                         f.write(archivo_csv_en_memoria.read())
                         
-                    print(f"[{ruc}] ⚠ ¡Archivo problemático guardado localmente en '{ruta_guardado}' para tu análisis!")
+                    print(f"[{ruc}] Archivo problemático guardado localmente en '{ruta_guardado}' para tu análisis!")
 
                 resultados[periodo] = {"estado": "ERROR_PROCESO", "error": str(e)}
 

@@ -18,6 +18,11 @@ class ProcesarVentasETL:
             on_bad_lines="skip",
             dtype=str,
         )
+        if "Tipo CP/Doc." in df.columns:
+            df = df[df["Tipo CP/Doc."].astype(str).str.strip() != "03"].copy()
+            
+        if df.empty:
+            return {"procesados_ok": 0, "df_limpio": df}
 
         # 2. Reglas de Negocio
         ruc_str = df["Ruc"].str.strip()
