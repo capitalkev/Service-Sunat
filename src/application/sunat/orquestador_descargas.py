@@ -1,5 +1,5 @@
 from src.application.sunat.get_ticket import GetTicket
-from src.application.sunat.get_token import GetTocken
+from src.application.sunat.get_token import GetToken
 from src.domain.interfaces import APIClientInterface
 from src.application.etl.procesar_ventas import ProcesarVentasETL
 from src.infrastructure.postgresql.repositories_sunat.ventas import VentasRepository
@@ -10,7 +10,7 @@ class OrquestadorDescargas:
     def __init__(
         self,
         get_ticket: GetTicket,
-        get_token: GetTocken,
+        get_token: GetToken,
         sunat_api: APIClientInterface,
         etl_ventas: ProcesarVentasETL,
         ventas_repo: VentasRepository,

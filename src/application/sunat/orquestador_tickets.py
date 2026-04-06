@@ -1,5 +1,5 @@
 from src.application.sunat.create_ticket import CreateTicket
-from src.application.sunat.get_token import GetTocken
+from src.application.sunat.get_token import GetToken
 from src.application.sunat.save_ticket import SaveTicket
 from src.infrastructure.postgresql.repositories_sunat.ventas import VentasRepository
 
@@ -8,7 +8,7 @@ class OrquestadorTickets:
     def __init__(
         self,
         generar_ticket: CreateTicket,
-        get_token: GetTocken,
+        get_token: GetToken,
         guardar_ticket: SaveTicket,
         ventas_repo: VentasRepository
     ):

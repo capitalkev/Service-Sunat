@@ -8,7 +8,7 @@ from src.application.etl.procesar_ventas import ProcesarVentasETL
 from src.application.enrolados.get_enrolados import GetEnrolado
 from src.application.enrolados.save_enrolados import SaveEnrolado
 from src.application.sunat.get_ticket import GetTicket
-from src.application.sunat.get_token import GetTocken
+from src.application.sunat.get_token import GetToken
 from src.application.sunat.get_token_api import GetTokenAPI
 from src.application.sunat.get_token_scraping import GetTokenScraping
 from src.application.sunat.orquestador_descargas import OrquestadorDescargas
@@ -74,7 +74,7 @@ def dp_orquestador_tickets(db: Session = Depends(get_db)) -> OrquestadorTickets:
         generar_ticket=create_ticket,
         guardar_ticket=save_ticket,
         ventas_repo=ventas_repo,
-        get_token=GetTocken(token_api, token_scraper),
+        get_token=GetToken(token_api, token_scraper),
     )
 
 
@@ -94,5 +94,5 @@ def dp_orquestador_descargas(db: Session = Depends(get_db)) -> OrquestadorDescar
         sunat_api=api_sunat,
         etl_ventas=etl_ventas,
         ventas_repo=ventas_repo,
-        get_token=GetTocken(token_api, token_scraper),
+        get_token=GetToken(token_api, token_scraper),
     )

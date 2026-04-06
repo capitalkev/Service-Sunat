@@ -2,7 +2,7 @@ from src.application.sunat.get_token_api import GetTokenAPI
 from src.application.sunat.get_token_scraping import GetTokenScraping
 
 
-class GetTocken:
+class GetToken:
     def __init__(
         self,
         token_api: GetTokenAPI,
@@ -27,6 +27,24 @@ class GetTocken:
             token2 = self.token_scraper.execute(ruc, usuario_sol, clave_sol)
             if token2:
                 return token2
-        except Exception:
-            print(f"[{ruc}] Fallo Crítico en Playwright.")
+        except ValueError as ve:
+            print(f"[{ruc}] Validación fallida: {ve}")
+            raise ve
+            
+        except Exception as e:
+            print(f"[{ruc}] Fallo Crítico en Playwright: {e}")
+            return None
+    
+    def nuevo_execute(self, ruc, usuario_sol, clave_sol, periodos):
+        try:
+            print(f"[{ruc}] Intentando Token Playwright...")
+            token2 = self.token_scraper.execute(ruc, usuario_sol, clave_sol, periodos)
+            if token2:
+                return token2
+        except ValueError as ve:
+            print(f"[{ruc}] Validación fallida: {ve}")
+            raise ve
+            
+        except Exception as e:
+            print(f"[{ruc}] Fallo Crítico en Playwright: {e}")
             return None

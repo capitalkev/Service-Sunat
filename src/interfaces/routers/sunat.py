@@ -8,6 +8,7 @@ from src.application.enrolados.get_only_enrolados import GetOnlyEnrolado
 from src.application.enrolados.save_enrolados import SaveEnrolado
 from src.application.sunat.orquestador_descargas import OrquestadorDescargas
 from src.application.sunat.orquestador_tickets import OrquestadorTickets
+from src.application.sunat.get_token import GetToken
 
 from src.interfaces.dependencias.enrolado import (
     dp_get_enrolado,
@@ -19,6 +20,11 @@ from src.interfaces.dependencias.enrolado import (
 
 router = APIRouter(prefix="/api-sunat", tags=["api-sunat"])
 
+class CredencialesNuevas(BaseModel):
+    ruc: str
+    usuario_sol: str
+    clave_sol: str
+    email: str
 
 class CredencialesManuales(BaseModel):
     ruc: str
@@ -45,11 +51,36 @@ def generar_periodos(cantidad_meses: int) -> list:
         periodos.append(f"{año}{mes:02d}")
     return periodos
 
+@router.post("/enrolate")
+def autenticar_usuario(
+    datos: CredencialesNuevas,
+    get_token: GetToken = Depends(),
+):
+    periodos = generar_periodos(1)
+
+    resultado = get_token.nuevo_execute(
+        ruc=datos.ruc,
+        usuario_sol=datos.usuario_sol.upper(),
+        clave_sol=datos.clave_sol,
+        periodos=periodos,
+    )
+
+    if resultado.get("resultados"):
+        return {
+            "status": "success",
+            "mensaje": "Autenticación exitosa. Credenciales válidas.",
+            "detalle": resultado.get("resultados", {}),
+        }
+    else:
+        raise HTTPException(
+            status_code=401,
+            detail="Autenticación fallida. Verifica las credenciales SOL.",
+        )
 
 @router.post("/manual-generar-tickets")
 def enrolar_y_generar_tickets_manual(
     datos: CredencialesManuales,
-    orquestador_tickets: OrquestadorTickets = Depends(dp_orquestador_tickets),
+    orquestador: OrquestadorTickets = Depends(dp_orquestador_tickets),
     save_repo: SaveEnrolado = Depends(dp_save_enrolado),
 ):
     periodos = generar_periodos(13)
@@ -61,7 +92,7 @@ def enrolar_y_generar_tickets_manual(
             status_code=500, detail=f"Error al guardar enrolado en BD: {e}"
         )
 
-    resultado = orquestador_tickets.execute(
+    resultado = orquestador.execute(
         ruc=datos.ruc,
         usuario_sol=datos.usuario_sol.upper(),
         clave_sol=datos.clave_sol,
