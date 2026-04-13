@@ -5,7 +5,6 @@ from datetime import datetime
 
 from src.application.enrolados.get_enrolados import GetEnrolado
 from src.application.enrolados.get_only_enrolados import GetOnlyEnrolado
-from src.application.enrolados.save_enrolados import SaveEnrolado
 from src.application.sunat.orquestador_descargas import OrquestadorDescargas
 from src.application.sunat.orquestador_tickets import OrquestadorTickets
 from src.application.sunat.get_token import GetToken
@@ -13,10 +12,10 @@ from src.application.sunat.get_token import GetToken
 from src.interfaces.dependencias.enrolado import (
     dp_get_enrolado,
     dp_get_only_enrolado,
-    dp_orquestador_tickets,
-    dp_save_enrolado,
     dp_get_token,
-    dp_orquestador_descargas_ventas,
+    dp_orquestador_tickets_compras,
+    dp_orquestador_tickets_ventas,
+    #dp_orquestador_descargas_ventas,
     dp_orquestador_descargas_compras,
 )
 
@@ -79,206 +78,125 @@ def autenticar_usuario(
         )
 
 
-@router.post("/manual-generar-tickets")
-def enrolar_y_generar_tickets_manual(
-    datos: CredencialesManuales,
-    orquestador: OrquestadorTickets = Depends(dp_orquestador_tickets),
-    save_repo: SaveEnrolado = Depends(dp_save_enrolado),
-):
-    periodos = generar_periodos(13)
-
-    try:
-        save_repo.execute(datos.model_dump())
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error al guardar enrolado en BD: {e}"
-        )
-
-    resultado = orquestador.execute(
-        ruc=datos.ruc,
-        usuario_sol=datos.usuario_sol.upper(),
-        clave_sol=datos.clave_sol,
-        client_id=datos.client_id,
-        client_secret=datos.client_secret,
-        periodos=periodos,
-    )
-
-    resultados_tickets = resultado.get("resultados", {})
-
-    if not resultados_tickets:
-        raise HTTPException(
-            status_code=401,
-            detail="No se pudo procesar ningún periodo. Verifica las credenciales SOL.",
-        )
-
-    return {
-        "status": "success",
-        "tipo": "manual_historico",
-        "mensaje": "Cliente enrolado y tickets generados exitosamente. Listos para la descarga.",
-        "total_procesados": len(resultados_tickets),
-        "detalle": resultados_tickets,
-    }
-
-
-@router.post("/manual/descargar/{ruc}")
-def descargar_manual_tickets(
+@router.post("/manual/generar-tickets/{ruc}")
+def generar_tickets_manual(
     ruc: str,
-    orquestador_descargas: OrquestadorDescargas = Depends(dp_orquestador_descargas),
+    tipo: str,
+    #orq_ventas: OrquestadorTickets = Depends(dp_orquestador_tickets_ventas),
+    orq_compras: OrquestadorTickets = Depends(dp_orquestador_tickets_compras),
     repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
 ):
     enrolado = repo.execute(ruc=ruc)
-
     if not enrolado:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No se encontraron credenciales para el RUC {ruc}. Asegúrate de enrolarlo primero.",
-        )
-    periodos = generar_periodos(13)
+        raise HTTPException(status_code=404, detail="RUC no enrolado")
 
-    resultado = orquestador_descargas.execute(
+    #orquestador = orq_ventas if tipo == "ventas" else orq_compras
+    orquestador = orq_compras
+    resultado = orquestador.execute(
         ruc=enrolado["ruc"],
         usuario_sol=enrolado["usuario_sol"],
         clave_sol=enrolado["clave_sol"],
         client_id=enrolado["client_id"],
         client_secret=enrolado["client_secret"],
-        periodos=periodos,
+        periodos=generar_periodos(13),
     )
-
     return {
         "status": "success",
-        "tipo": "descarga_manual_historico",
-        "mensaje": "Revisión de tickets y descargas finalizada.",
+        "tipo": tipo,
+        "detalle": resultado.get("resultados", {}),
+    }
+
+
+@router.post("/manual/descargar/{ruc}")
+def descargar_manual(
+    ruc: str,
+    tipo: str,
+    #orq_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
+    orq_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
+    repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
+):
+    enrolado = repo.execute(ruc=ruc)
+    if not enrolado:
+        raise HTTPException(status_code=404, detail="RUC no enrolado")
+
+    #orquestador = orq_ventas if tipo == "ventas" else orq_compras
+    orquestador = orq_compras
+    resultado = orquestador.execute(
+        ruc=enrolado["ruc"],
+        usuario_sol=enrolado["usuario_sol"],
+        clave_sol=enrolado["clave_sol"],
+        client_id=enrolado["client_id"],
+        client_secret=enrolado["client_secret"],
+        periodos=generar_periodos(13),
+    )
+    return {
+        "status": "success",
+        "tipo": tipo,
         "detalle": resultado.get("resultados", {}),
     }
 
 
 @router.post("/generar-tickets-automaticos")
-def procesar_lote_automatico(
-    orquestador: OrquestadorTickets = Depends(dp_orquestador_tickets),
+def procesar_tickets_automatico(
+    orq_ventas: OrquestadorTickets = Depends(dp_orquestador_tickets_ventas),
+    orq_compras: OrquestadorTickets = Depends(dp_orquestador_tickets_compras),
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute()
     periodos = generar_periodos(1)
-
     resultados_lote = []
 
     for emp in enrolados:
-        resultado = orquestador.execute(
-            ruc=emp["ruc"],
-            usuario_sol=emp["usuario_sol"],
-            clave_sol=emp["clave_sol"],
-            client_id=emp["client_id"],
-            client_secret=emp["client_secret"],
-            periodos=periodos,
-        )
+        cred = {
+            "ruc": emp["ruc"],
+            "usuario_sol": emp["usuario_sol"],
+            "clave_sol": emp["clave_sol"],
+            "client_id": emp["client_id"],
+            "client_secret": emp["client_secret"],
+            "periodos": periodos,
+        }
+        #res_ventas = orq_ventas.execute(**cred)
+        res_compras = orq_compras.execute(**cred)
+
         resultados_lote.append(
             {
-                "detalle": resultado,
+                "ruc": emp["ruc"],
+                #"tickets_ventas": res_ventas.get("resultados"),
+                "tickets_compras": res_compras.get("resultados"),
             }
         )
 
-    return {
-        "status": "success",
-        "resultados": resultados_lote,
-    }
+    return {"status": "success", "resultados": resultados_lote}
 
 
 @router.get("/descargar-archivos")
-def descargar_archivos(
-    orquestador: OrquestadorDescargas = Depends(dp_orquestador_descargas),
+def descargar_archivos_automatico(
+    #orq_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
+    orq_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
     repo: GetEnrolado = Depends(dp_get_enrolado),
 ):
     enrolados = repo.execute()
     periodos = generar_periodos(1)
-
     resultados_lote = []
 
     for emp in enrolados:
-        resultado = orquestador.execute(
-            ruc=emp["ruc"],
-            usuario_sol=emp["usuario_sol"],
-            clave_sol=emp["clave_sol"],
-            client_id=emp["client_id"],
-            client_secret=emp["client_secret"],
-            periodos=periodos,
-        )
+        cred = {
+            "ruc": emp["ruc"],
+            "usuario_sol": emp["usuario_sol"],
+            "clave_sol": emp["clave_sol"],
+            "client_id": emp["client_id"],
+            "client_secret": emp["client_secret"],
+            "periodos": periodos,
+        }
+        #res_ventas = orq_ventas.execute(**cred)
+        res_compras = orq_compras.execute(**cred)
+
         resultados_lote.append(
             {
-                "detalle": resultado,
+                "ruc": emp["ruc"],
+                #"descarga_ventas": res_ventas.get("resultados"),
+                "descarga_compras": res_compras.get("resultados"),
             }
         )
-    return {
-        "status": "success",
-        "resultados": resultados_lote,
-    }
 
-@router.post("/manual/descargar-ventas/{ruc}")
-def descargar_manual_ventas(
-    ruc: str,
-    orquestador_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
-    repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
-):
-    enrolado = repo.execute(ruc=ruc)
-    periodos = generar_periodos(13)
-    
-    # Se ejecuta SOLO ventas
-    resultado = orquestador_ventas.execute(
-        ruc=enrolado["ruc"], usuario_sol=enrolado["usuario_sol"], clave_sol=enrolado["clave_sol"],
-        client_id=enrolado["client_id"], client_secret=enrolado["client_secret"], periodos=periodos
-    )
-    return {"status": "success", "tipo": "ventas", "detalle": resultado.get("resultados", {})}
-
-
-@router.post("/manual/descargar-compras/{ruc}")
-def descargar_manual_compras(
-    ruc: str,
-    orquestador_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
-    repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
-):
-    enrolado = repo.execute(ruc=ruc)
-    periodos = generar_periodos(13)
-    
-    # Se ejecuta SOLO compras
-    resultado = orquestador_compras.execute(
-        ruc=enrolado["ruc"], usuario_sol=enrolado["usuario_sol"], clave_sol=enrolado["clave_sol"],
-        client_id=enrolado["client_id"], client_secret=enrolado["client_secret"], periodos=periodos
-    )
-    return {"status": "success", "tipo": "compras", "detalle": resultado.get("resultados", {})}
-
-@router.get("/descargar-archivos-automatico")
-def descargar_archivos_masivo(
-    orquestador_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
-    orquestador_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
-    repo: GetEnrolado = Depends(dp_get_enrolado),
-):
-    enrolados = repo.execute()
-    periodos = generar_periodos(1) # Solo el mes actual
-    resultados_lote = []
-
-    for emp in enrolados:
-        print(f"--- Procesando Empresa: {emp['ruc']} ---")
-        
-        # 1. Ejecutar automatización de VENTAS
-        resultado_ventas = orquestador_ventas.execute(
-            ruc=emp["ruc"], usuario_sol=emp["usuario_sol"], clave_sol=emp["clave_sol"],
-            client_id=emp["client_id"], client_secret=emp["client_secret"], periodos=periodos
-        )
-        
-        # 2. Ejecutar automatización de COMPRAS inmediatamente después
-        resultado_compras = orquestador_compras.execute(
-            ruc=emp["ruc"], usuario_sol=emp["usuario_sol"], clave_sol=emp["clave_sol"],
-            client_id=emp["client_id"], client_secret=emp["client_secret"], periodos=periodos
-        )
-        
-        # Consolidar resultados por empresa
-        resultados_lote.append({
-            "ruc": emp["ruc"],
-            "ventas": resultado_ventas.get("resultados", {}),
-            "compras": resultado_compras.get("resultados", {})
-        })
-
-    return {
-        "status": "success",
-        "mensaje": "Proceso automático finalizado para Ventas y Compras.",
-        "resultados": resultados_lote
-    }
+    return {"status": "success", "resultados": resultados_lote}

@@ -70,41 +70,51 @@ def dp_get_token() -> GetToken:
     return GetToken(token_api, token_scraper)
 
 
-def dp_orquestador_tickets(db: Session = Depends(get_db)) -> OrquestadorTickets:
-    """Ensambla el orquestador inyectando todas sus dependencias"""
-
+# --- INYECTORES DE TICKETS ---
+def dp_orquestador_tickets_ventas(db: Session = Depends(get_db)) -> OrquestadorTickets:
     api_sunat = APISUNAT()
-    tickets_repo = TicketsRepository(db)
-    ventas_repo = VentasRepository(db)
-    create_ticket = CreateTicket(api_sunat)
-    save_ticket = SaveTicket(tickets_repo)
-    token_api = GetTokenAPI(api_sunat)
-    token_scraper = GetTokenScraping(PlaywrightTokenScraper())
-
     return OrquestadorTickets(
-        generar_ticket=create_ticket,
-        guardar_ticket=save_ticket,
-        ventas_repo=ventas_repo,
-        get_token=GetToken(token_api, token_scraper),
-    )
-
-
-def dp_orquestador_descargas_ventas(db: Session = Depends(get_db)) -> OrquestadorDescargas:
-    return OrquestadorDescargas(
-        get_ticket=GetTicket(TicketsRepository(db)),
-        sunat_api=APISUNAT(),
-        etl_registro=ProcesarVentasETL(VentasRepository(db)), 
+        generar_ticket=CreateTicket(api_sunat),
+        guardar_ticket=SaveTicket(TicketsRepository(db)),
         registro_repo=VentasRepository(db),
         get_token=dp_get_token(),
-        tipo_registro="ventas" 
+        tipo_registro="ventas",
     )
 
-def dp_orquestador_descargas_compras(db: Session = Depends(get_db)) -> OrquestadorDescargas:
+
+def dp_orquestador_tickets_compras(db: Session = Depends(get_db)) -> OrquestadorTickets:
+    api_sunat = APISUNAT()
+    return OrquestadorTickets(
+        generar_ticket=CreateTicket(api_sunat),
+        guardar_ticket=SaveTicket(TicketsRepository(db)),
+        registro_repo=ComprasRepository(db),
+        get_token=dp_get_token(),
+        tipo_registro="compras",
+    )
+
+
+# --- INYECTORES DE DESCARGAS ---
+def dp_orquestador_descargas_ventas(
+    db: Session = Depends(get_db),
+) -> OrquestadorDescargas:
     return OrquestadorDescargas(
         get_ticket=GetTicket(TicketsRepository(db)),
         sunat_api=APISUNAT(),
-        etl_registro=ProcesarComprasETL(),
+        etl_registro=ProcesarVentasETL(VentasRepository(db)),
+        registro_repo=VentasRepository(db),
+        get_token=dp_get_token(),
+        tipo_registro="ventas",
+    )
+
+
+def dp_orquestador_descargas_compras(
+    db: Session = Depends(get_db),
+) -> OrquestadorDescargas:
+    return OrquestadorDescargas(
+        get_ticket=GetTicket(TicketsRepository(db)),
+        sunat_api=APISUNAT(),
+        etl_registro=ProcesarComprasETL(),  # Sin repo interno, como acordamos
         registro_repo=ComprasRepository(db),
         get_token=dp_get_token(),
-        tipo_registro="compras" 
+        tipo_registro="compras",
     )

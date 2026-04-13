@@ -14,9 +14,9 @@ class OrquestadorDescargas:
         get_ticket: GetTicket,
         get_token: GetToken,
         sunat_api: APIClientInterface,
-        etl_registro: ProcesarRegistroETLInterface,  # Usa la Interfaz
-        registro_repo: RegistroRepositoryInterface,  # Usa la Interfaz
-        tipo_registro: str = "ventas",  # Bandera ("ventas" o "compras")
+        etl_registro: ProcesarRegistroETLInterface,
+        registro_repo: RegistroRepositoryInterface,
+        tipo_registro: str = "ventas",
     ):
         self.get_ticket = get_ticket
         self.get_token = get_token
@@ -42,7 +42,7 @@ class OrquestadorDescargas:
                 resultados[periodo] = {"estado": "YA_EXISTE_EN_BD"}
                 continue
 
-            numero_ticket = self.get_ticket.execute(ruc, periodo)
+            numero_ticket = self.get_ticket.execute(ruc, periodo, self.tipo_registro)
 
             if not numero_ticket:
                 resultados[periodo] = {"estado": "TICKET_NO_ENCONTRADO"}
