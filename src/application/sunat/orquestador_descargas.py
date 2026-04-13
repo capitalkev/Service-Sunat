@@ -1,8 +1,10 @@
 from src.application.sunat.get_ticket import GetTicket
 from src.application.sunat.get_token import GetToken
-from src.domain.interfaces import APIClientInterface
-from src.application.etl.procesar_ventas import ProcesarVentasETL
-from src.infrastructure.postgresql.repositories_sunat.ventas import VentasRepository
+from src.domain.interfaces import (
+    APIClientInterface,
+    ProcesarRegistroETLInterface,
+    RegistroRepositoryInterface,
+)
 from typing import Any
 
 
@@ -12,14 +14,16 @@ class OrquestadorDescargas:
         get_ticket: GetTicket,
         get_token: GetToken,
         sunat_api: APIClientInterface,
-        etl_ventas: ProcesarVentasETL,
-        ventas_repo: VentasRepository,
+        etl_registro: ProcesarRegistroETLInterface,  # Usa la Interfaz
+        registro_repo: RegistroRepositoryInterface,  # Usa la Interfaz
+        tipo_registro: str = "ventas",  # Bandera ("ventas" o "compras")
     ):
         self.get_ticket = get_ticket
         self.get_token = get_token
         self.sunat_api = sunat_api
-        self.etl_ventas = etl_ventas
-        self.ventas_repo = ventas_repo
+        self.etl_registro = etl_registro
+        self.registro_repo = registro_repo
+        self.tipo_registro = tipo_registro
 
     def execute(
         self, ruc, usuario_sol, clave_sol, client_id, client_secret, periodos: list
@@ -27,10 +31,11 @@ class OrquestadorDescargas:
         resultados: dict[str, dict[str, Any]] = {}
 
         token_acceso = self.get_token.execute(
-            ruc, usuario_sol, clave_sol, client_id, client_secret)
+            ruc, usuario_sol, clave_sol, client_id, client_secret
+        )
 
         for periodo in periodos:
-            if self.ventas_repo.existe_periodo(ruc, periodo):
+            if self.registro_repo.existe_periodo(ruc, periodo):
                 print(
                     f"[{ruc}] El periodo {periodo} ya existe en BD. Omitiendo descarga."
                 )
@@ -44,24 +49,32 @@ class OrquestadorDescargas:
                 continue
 
             try:
+                # Nota que aquí le pasamos "self.tipo_registro" para que sepa si es rvie o rce
                 estado_info = self.sunat_api.verificar_estado(
-                    numero_ticket, token_acceso, periodo
+                    numero_ticket, token_acceso, periodo, self.tipo_registro
                 )
                 estado_codigo = estado_info.get("estado")
 
                 if estado_codigo == "06":
                     datos_archivo = estado_info.get("datos_archivo")
 
+                    # También pasamos "self.tipo_registro"
                     archivo_csv_en_memoria = self.sunat_api.descargar_archivo(
-                        datos_archivo, token_acceso, periodo, numero_ticket, ruc
+                        datos_archivo,
+                        token_acceso,
+                        periodo,
+                        numero_ticket,
+                        ruc,
+                        self.tipo_registro,
                     )
 
-                    resultado_etl = self.etl_ventas.execute(archivo_csv_en_memoria)
+                    resultado_etl = self.etl_registro.execute(archivo_csv_en_memoria)
                     df_limpio = resultado_etl.get("df_limpio")
 
                     registros_guardados = 0
                     if df_limpio is not None and not df_limpio.empty:
-                        registros_guardados = self.ventas_repo.guardar_lote_ventas(
+                        # Ahora usa el método genérico "guardar_lote"
+                        registros_guardados = self.registro_repo.guardar_lote(
                             df_limpio, ruc
                         )
                         print(
@@ -74,13 +87,17 @@ class OrquestadorDescargas:
                         "procesados_ok": resultado_etl.get("procesados_ok"),
                     }
                 else:
-                    print(f"[{ruc}] Ticket {numero_ticket} no está listo. Estado SUNAT: {estado_codigo}")
+                    print(
+                        f"[{ruc}] Ticket {numero_ticket} no está listo. Estado SUNAT: {estado_codigo}"
+                    )
                     resultados[periodo] = {
                         "ticket": numero_ticket,
-                        "estado": f"PENDIENTE_EN_SUNAT_ESTADO_{estado_codigo}"
+                        "estado": f"PENDIENTE_EN_SUNAT_ESTADO_{estado_codigo}",
                     }
 
             except Exception as e:
-                print(f"[{ruc}] Error al procesar ticket {numero_ticket} (Periodo: {periodo}): {e}")
+                print(
+                    f"[{ruc}] Error al procesar ticket {numero_ticket} (Periodo: {periodo}): {e}"
+                )
 
         return {"ruc": ruc, "resultados": resultados}

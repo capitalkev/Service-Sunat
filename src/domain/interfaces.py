@@ -19,10 +19,11 @@ class APIClientInterface(Protocol):
 
     def _get_headers(self, token_acceso: str) -> dict: ...
 
-    def generar_ticket(self, periodo: str, token_acceso: str) -> str: ...
+    # ¡Agregamos tipo: str = "ventas" a estos 3 métodos!
+    def generar_ticket(self, periodo: str, token_acceso: str, tipo: str = "ventas") -> str: ...
 
     def verificar_estado(
-        self, numero_ticket: str, token_acceso: str, periodo: str
+        self, numero_ticket: str, token_acceso: str, periodo: str, tipo: str = "ventas"
     ) -> dict: ...
 
     def descargar_archivo(
@@ -32,6 +33,7 @@ class APIClientInterface(Protocol):
         periodo: str,
         numero_ticket: str,
         ruc: str,
+        tipo: str = "ventas"
     ) -> io.BytesIO: ...
 
 

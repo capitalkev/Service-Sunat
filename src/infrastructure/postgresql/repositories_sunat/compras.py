@@ -1,28 +1,26 @@
 from datetime import datetime
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 import pandas as pd
 
-
-class VentasRepository:
+class ComprasRepository:
     def __init__(self, db: Session):
         self.db = db
         self.engine = db.get_bind()
 
     def existe_periodo(self, ruc: str, periodo: str) -> bool:
-        """Verifica si ya existen ventas para este cliente y periodo en la BD."""
+        """Verifica si ya existen compras para este cliente y periodo en la BD."""
         periodo_actual = datetime.now().strftime("%Y%m")
-
+        
         if periodo == periodo_actual:
             return False
 
         query = text(
             """
-            SELECT 1 FROM ventas_sunat 
+            SELECT 1 FROM compras_sunat 
             WHERE ruc = :ruc AND periodo = :per 
             LIMIT 1
-        """
+            """
         )
         resultado = self.db.execute(query, {"ruc": ruc, "per": periodo}).fetchone()
         return resultado is not None
@@ -31,7 +29,7 @@ class VentasRepository:
         if df_limpio.empty:
             return 0
 
-        tabla_temp = f"temp_ventas_{ruc}"
+        tabla_temp = f"temp_compras_{ruc}"
 
         with self.engine.begin() as conn:
             # 1. Subimos la data temporal consolidada
@@ -41,17 +39,16 @@ class VentasRepository:
                 if_exists="replace",
                 index=False,
                 chunksize=4000,
-                method="multi",
+                method='multi'  
             )
 
-            # 2. UPSERT a la tabla real (Añadiendo CAST a las fechas y números)
+            # 2. UPSERT a la tabla real
             query_upsert = text(
                 f"""
-                INSERT INTO ventas_sunat (
+                INSERT INTO compras_sunat (
                     ruc, razon_social, periodo, fecha_emision, fecha_vcto_pago, 
-                    tipo_cp_doc, serie_cdp, nro_cp_doc, nro_doc_identidad, 
-                    cliente_razon_social, total_cp, moneda, tipo_cambio, 
-                    serie_cp_modificado, nro_cp_modificado
+                    tipo_cp_doc, serie_cdp, nro_cp_doc, tipo_doc_id_proveedor, 
+                    nro_doc_id_proveedor, nombre_proveedor, moneda, tipo_cambio
                 )
                 SELECT 
                     ruc, 
@@ -62,17 +59,15 @@ class VentasRepository:
                     tipo_cp_doc, 
                     serie_cdp, 
                     nro_cp_doc, 
-                    nro_doc_identidad, 
-                    cliente_razon_social, 
-                    CAST(total_cp AS NUMERIC), 
+                    tipo_doc_id_proveedor, 
+                    nro_doc_id_proveedor, 
+                    nombre_proveedor, 
                     moneda, 
-                    CAST(tipo_cambio AS NUMERIC), 
-                    serie_cp_modificado, 
-                    nro_cp_modificado
+                    CAST(tipo_cambio AS NUMERIC)
                 FROM {tabla_temp}
-                ON CONFLICT (ruc, tipo_cp_doc, serie_cdp, nro_cp_doc) 
+                ON CONFLICT (ruc, nro_doc_id_proveedor, tipo_cp_doc, serie_cdp, nro_cp_doc) 
                 DO NOTHING;
-            """
+                """
             )
 
             conn.execute(query_upsert)

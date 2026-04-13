@@ -44,7 +44,7 @@ class APISUNAT(APIClientInterface):
             raise ValueError(f"Fallo crítico en autenticación: {e}")
 
     # Generar Ticket
-    def generar_ticket(self, periodo, token_acceso,tipo: str = "ventas") -> str:
+    def generar_ticket(self, periodo, token_acceso, tipo: str = "ventas") -> str:
         url_exportar = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/{self.CONFIG[tipo]['path']}/propuesta/web/propuesta/{periodo}/exportapropuesta"
         params_exportar = {"codTipoArchivo": "1"}
 

@@ -103,7 +103,7 @@ def dp_orquestador_descargas_compras(db: Session = Depends(get_db)) -> Orquestad
     return OrquestadorDescargas(
         get_ticket=GetTicket(TicketsRepository(db)),
         sunat_api=APISUNAT(),
-        etl_registro=ProcesarComprasETL(ComprasRepository(db)), 
+        etl_registro=ProcesarComprasETL(),
         registro_repo=ComprasRepository(db),
         get_token=dp_get_token(),
         tipo_registro="compras" 
