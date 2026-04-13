@@ -59,6 +59,15 @@ def dp_save_ticket(db: Session = Depends(get_db)) -> SaveTicket:
     return SaveTicket(repository)
 
 
+def dp_get_token() -> GetToken:
+    """Ensambla el caso de uso GetToken inyectando sus dependencias."""
+    api_sunat = APISUNAT()
+    token_api = GetTokenAPI(api_sunat)
+    token_scraper = GetTokenScraping(PlaywrightTokenScraper())
+
+    return GetToken(token_api, token_scraper)
+
+
 def dp_orquestador_tickets(db: Session = Depends(get_db)) -> OrquestadorTickets:
     """Ensambla el orquestador inyectando todas sus dependencias"""
 
@@ -96,3 +105,5 @@ def dp_orquestador_descargas(db: Session = Depends(get_db)) -> OrquestadorDescar
         ventas_repo=ventas_repo,
         get_token=GetToken(token_api, token_scraper),
     )
+
+

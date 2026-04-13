@@ -16,15 +16,17 @@ from src.interfaces.dependencias.enrolado import (
     dp_orquestador_descargas,
     dp_orquestador_tickets,
     dp_save_enrolado,
+    dp_get_token,
 )
 
 router = APIRouter(prefix="/api-sunat", tags=["api-sunat"])
+
 
 class CredencialesNuevas(BaseModel):
     ruc: str
     usuario_sol: str
     clave_sol: str
-    email: str
+
 
 class CredencialesManuales(BaseModel):
     ruc: str
@@ -51,31 +53,30 @@ def generar_periodos(cantidad_meses: int) -> list:
         periodos.append(f"{año}{mes:02d}")
     return periodos
 
+
 @router.post("/enrolate")
 def autenticar_usuario(
     datos: CredencialesNuevas,
-    get_token: GetToken = Depends(),
+    get_token: GetToken = Depends(dp_get_token),
 ):
-    periodos = generar_periodos(1)
-
     resultado = get_token.nuevo_execute(
         ruc=datos.ruc,
         usuario_sol=datos.usuario_sol.upper(),
         clave_sol=datos.clave_sol,
-        periodos=periodos,
     )
 
-    if resultado.get("resultados"):
+    if resultado:
         return {
             "status": "success",
-            "mensaje": "Autenticación exitosa. Credenciales válidas.",
-            "detalle": resultado.get("resultados", {}),
+            "mensaje": "Autenticación exitosa. Token obtenido.",
+            "token": resultado,
         }
     else:
         raise HTTPException(
             status_code=401,
             detail="Autenticación fallida. Verifica las credenciales SOL.",
         )
+
 
 @router.post("/manual-generar-tickets")
 def enrolar_y_generar_tickets_manual(
@@ -209,3 +210,4 @@ def descargar_archivos(
         "status": "success",
         "resultados": resultados_lote,
     }
+

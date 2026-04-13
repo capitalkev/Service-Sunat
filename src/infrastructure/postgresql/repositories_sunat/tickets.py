@@ -28,7 +28,7 @@ class TicketsRepository(TicketsInterface):
         query = text(
             """
             SELECT ticket FROM tickets_sunat 
-            WHERE ruc = :ruc AND periodo = :per
+            WHERE ruc = :ruc AND periodo = :per and id = (SELECT MAX(id) FROM tickets_sunat WHERE ruc = :ruc AND periodo = :per)
             """
         )
         result = self.db.execute(query, {"ruc": ruc, "per": periodo})

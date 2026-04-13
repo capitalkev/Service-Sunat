@@ -9,8 +9,9 @@ class PlaywrightTokenScraper(TokenScraperInterface):
 
         with sync_playwright() as p:
             # headless=False si quieres ver cómo el navegador se mueve solo
-            browser = p.chromium.launch(headless=True) 
-            context = browser.new_context()
+            browser = p.chromium.launch(headless=False, args=["--disable-blink-features=AutomationControlled"]) 
+            context = browser.new_context(viewport={"width": 1366, "height": 768},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
             page = context.new_page()
 
             # Interceptor de peticiones
@@ -67,7 +68,7 @@ class PlaywrightTokenScraper(TokenScraperInterface):
                 print(f"Error en Playwright: {e}")
             finally:
                 browser.close()
-
+        print(f"[{ruc}] 2. Token capturado: {token_capturado}")
         if not token_capturado:
             raise ValueError("No se pudo capturar el Token Bearer.")
         return token_capturado
