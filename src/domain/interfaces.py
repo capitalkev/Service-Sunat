@@ -1,6 +1,7 @@
 from typing import Any, Protocol
 import io
 from typing import Optional
+import pandas as pd
 
 
 class ScriptInterface(Protocol):
@@ -48,3 +49,10 @@ class TicketsInterface(Protocol):
     def guardar_ticket(self, ticket: str, ruc: str, periodo: str) -> None: ...
     
     def traer_ticket(self, ruc: str, periodo: str) -> Optional[str]: ...
+    
+class ProcesarRegistroETLInterface(Protocol):
+    def execute(self, csv_file_obj: io.BytesIO) -> dict: ...
+
+class RegistroRepositoryInterface(Protocol):
+    def existe_periodo(self, ruc: str, periodo: str) -> bool: ...
+    def guardar_lote(self, df_limpio: pd.DataFrame, ruc: str) -> int: ...

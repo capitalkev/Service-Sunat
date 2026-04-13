@@ -6,7 +6,12 @@ from src.domain.interfaces import APIClientInterface
 
 
 class APISUNAT(APIClientInterface):
-
+    
+    CONFIG = {
+        "ventas": {"cod": "140000", "path": "rvie"},
+        "compras": {"cod": "080000", "path": "rce"}
+    }
+    
     def get_token(self, ruc, usuario_sol, clave_sol, id, clave) -> str:
         url_seguridad = (
             f"https://api-seguridad.sunat.gob.pe/v1/clientessol/{id}/oauth2/token/"
@@ -39,8 +44,8 @@ class APISUNAT(APIClientInterface):
             raise ValueError(f"Fallo crítico en autenticación: {e}")
 
     # Generar Ticket
-    def generar_ticket(self, periodo, token_acceso) -> str:
-        url_exportar = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvie/propuesta/web/propuesta/{periodo}/exportapropuesta"
+    def generar_ticket(self, periodo, token_acceso,tipo: str = "ventas") -> str:
+        url_exportar = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/{self.CONFIG[tipo]['path']}/propuesta/web/propuesta/{periodo}/exportapropuesta"
         params_exportar = {"codTipoArchivo": "1"}
 
         try:
@@ -77,15 +82,15 @@ class APISUNAT(APIClientInterface):
         }
         return headers_sire
 
-    def verificar_estado(self, numero_ticket, token_acceso, periodo) -> dict:
-        url_estado = "https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/consultaestadotickets"
+    def verificar_estado(self, numero_ticket, token_acceso, periodo, tipo: str = "ventas") -> dict:
+        url_estado = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/{self.CONFIG[tipo]['path']}/gestionprocesosmasivos/web/masivo/consultaestadotickets"
         params_estado = {
             "perIni": periodo,
             "perFin": periodo,
             "page": 1,
             "perPage": 20,
             "numTicket": numero_ticket,
-            "codLibro": "140000",
+            "codLibro": self.CONFIG[tipo]["cod"],
             "codOrigenEnvio": "2",
         }
 
@@ -129,13 +134,13 @@ class APISUNAT(APIClientInterface):
             raise RuntimeError(f"Error al consultar estado: {e}")
 
     def descargar_archivo(
-        self, datos_archivo, token_acceso, periodo, numero_ticket, ruc
+        self, datos_archivo, token_acceso, periodo, numero_ticket, ruc, tipo: str = "ventas"
     ) -> io.BytesIO:
-        url_descarga = "https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/rvierce/gestionprocesosmasivos/web/masivo/archivoreporte"
+        url_descarga = f"https://api-sire.sunat.gob.pe/v1/contribuyente/migeigv/libros/{self.CONFIG[tipo]['path']}/gestionprocesosmasivos/web/masivo/archivoreporte"
         params_descarga = {
             "nomArchivoReporte": datos_archivo["nomArchivoReporte"],
             "codTipoArchivoReporte": datos_archivo["codTipoArchivoReporte"],
-            "codLibro": "140000",
+            "codLibro": self.CONFIG[tipo]["cod"],
             "perTributario": periodo,
             "codProceso": datos_archivo["codProceso"],
             "numTicket": numero_ticket,

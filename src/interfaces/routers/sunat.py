@@ -17,6 +17,8 @@ from src.interfaces.dependencias.enrolado import (
     dp_orquestador_tickets,
     dp_save_enrolado,
     dp_get_token,
+    dp_orquestador_descargas_ventas,
+    dp_orquestador_descargas_compras,
 )
 
 router = APIRouter(prefix="/api-sunat", tags=["api-sunat"])
@@ -211,3 +213,73 @@ def descargar_archivos(
         "resultados": resultados_lote,
     }
 
+@router.post("/manual/descargar-ventas/{ruc}")
+def descargar_manual_ventas(
+    ruc: str,
+    orquestador_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
+    repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
+):
+    enrolado = repo.execute(ruc=ruc)
+    periodos = generar_periodos(13)
+    
+    # Se ejecuta SOLO ventas
+    resultado = orquestador_ventas.execute(
+        ruc=enrolado["ruc"], usuario_sol=enrolado["usuario_sol"], clave_sol=enrolado["clave_sol"],
+        client_id=enrolado["client_id"], client_secret=enrolado["client_secret"], periodos=periodos
+    )
+    return {"status": "success", "tipo": "ventas", "detalle": resultado.get("resultados", {})}
+
+
+@router.post("/manual/descargar-compras/{ruc}")
+def descargar_manual_compras(
+    ruc: str,
+    orquestador_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
+    repo: GetOnlyEnrolado = Depends(dp_get_only_enrolado),
+):
+    enrolado = repo.execute(ruc=ruc)
+    periodos = generar_periodos(13)
+    
+    # Se ejecuta SOLO compras
+    resultado = orquestador_compras.execute(
+        ruc=enrolado["ruc"], usuario_sol=enrolado["usuario_sol"], clave_sol=enrolado["clave_sol"],
+        client_id=enrolado["client_id"], client_secret=enrolado["client_secret"], periodos=periodos
+    )
+    return {"status": "success", "tipo": "compras", "detalle": resultado.get("resultados", {})}
+
+@router.get("/descargar-archivos-automatico")
+def descargar_archivos_masivo(
+    orquestador_ventas: OrquestadorDescargas = Depends(dp_orquestador_descargas_ventas),
+    orquestador_compras: OrquestadorDescargas = Depends(dp_orquestador_descargas_compras),
+    repo: GetEnrolado = Depends(dp_get_enrolado),
+):
+    enrolados = repo.execute()
+    periodos = generar_periodos(1) # Solo el mes actual
+    resultados_lote = []
+
+    for emp in enrolados:
+        print(f"--- Procesando Empresa: {emp['ruc']} ---")
+        
+        # 1. Ejecutar automatización de VENTAS
+        resultado_ventas = orquestador_ventas.execute(
+            ruc=emp["ruc"], usuario_sol=emp["usuario_sol"], clave_sol=emp["clave_sol"],
+            client_id=emp["client_id"], client_secret=emp["client_secret"], periodos=periodos
+        )
+        
+        # 2. Ejecutar automatización de COMPRAS inmediatamente después
+        resultado_compras = orquestador_compras.execute(
+            ruc=emp["ruc"], usuario_sol=emp["usuario_sol"], clave_sol=emp["clave_sol"],
+            client_id=emp["client_id"], client_secret=emp["client_secret"], periodos=periodos
+        )
+        
+        # Consolidar resultados por empresa
+        resultados_lote.append({
+            "ruc": emp["ruc"],
+            "ventas": resultado_ventas.get("resultados", {}),
+            "compras": resultado_compras.get("resultados", {})
+        })
+
+    return {
+        "status": "success",
+        "mensaje": "Proceso automático finalizado para Ventas y Compras.",
+        "resultados": resultados_lote
+    }
